@@ -1,17 +1,9 @@
 library IEEE;
-use IEEE.NUMERIC_STD.all;
-
-package sVec is
-  type sVec is array(natural range <>) of signed;
-end package sVec;
-
-library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.all;
 use ieee.math_real.all;
-use work.sVec.all;
 
-entity top is
+entity dot_product is
   generic (
     N      : integer := 16;
     A_SIZE : integer := 12;
@@ -22,21 +14,21 @@ entity top is
     clk     : in std_logic;
     aresetn : in std_logic;
 
-    a       : in  sVec(N-1 downto 0)(A_SIZE-1 downto 0);
+    a       : in  signed(N*A_SIZE-1 downto 0);
     a_valid : in  std_logic;
-    b       : in  sVec(N-1 downto 0)(B_SIZE-1 downto 0);
+    b       : in  signed(N*B_SIZE-1 downto 0);
     b_valid : in  std_logic;
     s       : out signed(A_SIZE + B_SIZE - 1 downto 0);
     s_valid : out std_logic
     );
-end top;
+end dot_product;
 
-architecture rtl of top is
-  signal a_reg      : sVec(N-1 downto 0)(A_SIZE-1 downto 0);
-  signal b_reg      : sVec(N-1 downto 0)(B_SIZE-1 downto 0);
+architecture rtl of dot_product is
   constant STAGES   : integer := integer(ceil(log2(real(N))));
   signal valid_regs : std_logic_vector(STAGES downto 0);
-  signal sums       : sVec(2**(STAGES+1)-2 downto 0)(A_SIZE+B_SIZE-1 downto 0);
+
+  type s_vec_t is array(natural range <>) of signed(A_SIZE+B_SIZE-1 downto 0);
+  signal sums : s_vec_t(2**(STAGES+1)-2 downto 0);
 begin
 
   -- Generate the pipeline stages
@@ -47,18 +39,14 @@ begin
   begin
     if (rising_edge(clk)) then
       if (aresetn = '0') then
-        a_reg      <= (others => to_signed(0, A_SIZE));
-        b_reg      <= (others => to_signed(0, B_SIZE));
         sums       <= (others => to_signed(0, A_SIZE+B_SIZE));
         valid_regs <= (others => '0');
       else
---        a_reg         <= a;
---        b_reg         <= b;
         valid_regs(0) <= a_valid and b_valid;
 
         for i in 0 to 2**STAGES-1 loop
           if (i < N) then
-            sums(i) <= a(i) * b(i);
+            sums(i) <= a((i+1)*A_SIZE-1 downto i*A_SIZE) * b((i+1)*B_SIZE-1 downto i*B_SIZE);
           else
             sums(i) <= to_signed(0, A_SIZE+B_SIZE);
           end if;
