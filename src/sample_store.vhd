@@ -15,16 +15,16 @@ use work.common.all;
 -- ... | ... | ... | ... | ...
 --
 --
---     +--------------------------------------------------------> CUR
+--     +----------------------------------------------------------> CUR
 --     |
---     |           +--------------------------------------------> W
+--     |           +----------------------------------------------> W
 --     |   +----+  |   +-------------+
--- in -+-->| NZ |--+-->| (NX-1)*NZ-1 |---+----------------------> NE
---         +----+      +-------------+   |   +---+
---                                       +-->| 1 |--+-----------> N
---                                           +---+  |   +---+
---                                                  +-->| 1 |---> NW
---                                                      +---+
+-- in -+-->| NZ |--+-->| (NX-2)*NZ   |---+------------------------> NE
+--         +----+      +-------------+   |   +----+
+--                                       +-->| NZ |--+------------> N
+--                                           +----+  |   +----+
+--                                                   +-->| NZ |---> NW
+--                                                       +----+
 --
 -- (Boxes indicate delays, numbers indicate number of clock cycles)
 --------------------------------------------------------------------------------
@@ -42,92 +42,65 @@ entity sample_store is
     in_sample : in std_logic_vector(D-1 downto 0);
     in_valid  : in std_logic;
 
-    out_valid : out std_logic;
-    out_s_ne  : out std_logic_vector(D-1 downto 0);
-    out_s_n   : out std_logic_vector(D-1 downto 0);
-    out_s_nw  : out std_logic_vector(D-1 downto 0);
-    out_s_w   : out std_logic_vector(D-1 downto 0)
+    out_s_ne : out std_logic_vector(D-1 downto 0);
+    out_s_n  : out std_logic_vector(D-1 downto 0);
+    out_s_nw : out std_logic_vector(D-1 downto 0);
+    out_s_w  : out std_logic_vector(D-1 downto 0)
     );
 end sample_store;
 
 architecture rtl of sample_store is
-  type band_fifo_arr_t is array (0 to NZ-1) of std_logic_vector(D-1 downto 0);
-  type row_fifo_arr_t is array(0 to (NX-1)*NZ-2) of std_logic_vector(D-1 downto 0);
-
-  signal from_band_fifo_sample : in_sample'subtype;
-  signal from_row_fifo_sample : in_sample'subtype;
-
-  signal band_fifo : band_fifo_arr_t;
-  signal row_fifo  : row_fifo_arr_t;
-
-  signal band_rd_idx : integer range 0 to NZ-1;
-  signal band_wr_idx : integer range 0 to NZ-1;
-
-  signal row_rd_idx : integer range 0 to (NX-1)*NZ-2;
-  signal row_wr_idx : integer range 0 to (NX-1)*NZ-2;
-
-  signal s_reg1 : in_sample'subtype;
-  signal s_reg2 : in_sample'subtype;
+  signal from_w_fifo_sample  : in_sample'subtype;
+  signal from_ne_fifo_sample : in_sample'subtype;
+  signal from_n_fifo_sample  : in_sample'subtype;
+  signal from_nw_fifo_sample : in_sample'subtype;
 begin
+  i_w_fifo : entity work.fifo
+    generic map (
+      ELEMENT_SIZE => D,
+      SIZE         => NZ)
+    port map (
+      clk      => clk,
+      aresetn  => aresetn,
+      in_data  => in_sample,
+      in_valid => in_valid,
+      out_data => from_w_fifo_sample);
 
-  -- Infer dual port block RAMs
-  process (clk)
-  begin
-    if (rising_edge(clk)) then
-      if (in_valid = '1') then
-        band_fifo(band_wr_idx) <= in_sample;
-        row_fifo(row_wr_idx)   <= from_band_fifo_sample;
-      end if;
-    end if;
-  end process;
+  i_ne_fifo : entity work.fifo
+    generic map (
+      ELEMENT_SIZE => D,
+      SIZE         => (NX-2)*NZ)
+    port map (
+      clk      => clk,
+      aresetn  => aresetn,
+      in_data  => from_w_fifo_sample,
+      in_valid => in_valid,
+      out_data => from_ne_fifo_sample);
 
-  process (clk)
-  begin
-    if (rising_edge(clk)) then
-      if (in_valid = '1') then
-        from_band_fifo_sample <= band_fifo(band_rd_idx);
-        from_row_fifo_sample  <= row_fifo(row_rd_idx);
-      end if;
-    end if;
-  end process;
+  i_n_fifo : entity work.fifo
+    generic map (
+      ELEMENT_SIZE => D,
+      SIZE         => NZ)
+    port map (
+      clk      => clk,
+      aresetn  => aresetn,
+      in_data  => from_ne_fifo_sample,
+      in_valid => in_valid,
+      out_data => from_n_fifo_sample);
 
-  -- Update indices
-  process (clk)
-  begin
-    if (rising_edge(clk)) then
-      if (aresetn = '0') then
-        band_rd_idx <= 0;
-        band_wr_idx <= band_fifo'high;
-        row_rd_idx  <= 0;
-        row_wr_idx  <= row_fifo'high;
-      else
-        if (in_valid = '1') then
-          band_rd_idx <= wrap_inc(band_rd_idx, band_fifo'high);
-          band_wr_idx <= wrap_inc(band_wr_idx, band_fifo'high);
-          row_rd_idx  <= wrap_inc(row_rd_idx, row_fifo'high);
-          row_wr_idx  <= wrap_inc(row_wr_idx, row_fifo'high);
-        end if;
-      end if;
-    end if;
-  end process;
+  i_nw_fifo : entity work.fifo
+    generic map (
+      ELEMENT_SIZE => D,
+      SIZE         => NZ)
+    port map (
+      clk      => clk,
+      aresetn  => aresetn,
+      in_data  => from_n_fifo_sample,
+      in_valid => in_valid,
+      out_data => from_nw_fifo_sample);
 
-  out_s_w  <= from_band_fifo_sample;
-  out_s_ne <= from_row_fifo_sample;
-
-  -- Delays for s_n and s_nw
-  process (clk)
-  begin
-    if (rising_edge(clk)) then
-      if (aresetn = '0') then
-        s_reg1 <= (others => '0');
-        s_reg2 <= (others => '0');
-      else
-        s_reg1 <= from_row_fifo_sample;
-        s_reg2 <= s_reg1;
-      end if;
-    end if;
-  end process;
-
-  out_s_n  <= s_reg1;
-  out_s_nw <= s_reg2;
+  out_s_w  <= from_w_fifo_sample;
+  out_s_ne <= from_ne_fifo_sample;
+  out_s_n  <= from_n_fifo_sample;
+  out_s_nw <= from_nw_fifo_sample;
 end rtl;

@@ -12,6 +12,7 @@ package common is
 
   function clip(val : integer; val_min : integer; val_max : integer) return integer;
   function sgn(val : integer) return integer;
+  function wrap_inc(val : integer; max : integer) return integer;
 end common;
 
 package body common is
@@ -35,4 +36,12 @@ package body common is
     end if;
   end sgn;
 
+  function wrap_inc(val : integer; max : integer) return integer is
+  begin
+    if (val + 1 > max) then
+      return 0;
+    else
+      return val + 1;
+    end if;
+  end wrap_inc;
 end common;
