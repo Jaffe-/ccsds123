@@ -43,7 +43,8 @@ entity local_diff is
     out_valid : out in_valid'subtype;
     out_ctrl  : out in_ctrl'subtype;
     out_t     : out in_t'subtype;
-    out_z     : out in_z'subtype
+    out_z     : out in_z'subtype;
+    out_s     : out signed(D-1 downto 0)
     );
 end local_diff;
 
@@ -55,10 +56,16 @@ architecture rtl of local_diff is
   signal ctrl_reg  : in_ctrl'subtype;
   signal t_reg     : in_t'subtype;
   signal z_reg     : in_z'subtype;
+  signal s_reg     : s_cur'subtype;
+
+  subtype sample_range is integer range -2**(D-1) to 2**(D-1)-1;
+  signal s_cur_reg : sample_range;
+  signal s_n_reg   : sample_range;
+  signal s_nw_reg  : sample_range;
+  signal s_w_reg   : sample_range;
 begin
 
   process (clk)
-    subtype sample_range is integer range -2**(D-1) to 2**(D-1)-1;
     variable s_cur_i : sample_range;
     variable s_n_i   : sample_range;
     variable s_nw_i  : sample_range;
@@ -72,6 +79,15 @@ begin
         d_n           <= to_signed(0, D+3);
         d_w           <= to_signed(0, D+3);
         d_nw          <= to_signed(0, D+3);
+        valid_reg     <= '0';
+        ctrl_reg      <= ('0', '0', '0', '0');
+        t_reg         <= 0;
+        z_reg         <= 0;
+        s_reg         <= (others => '0');
+        s_cur_reg     <= 0;
+        s_n_reg       <= 0;
+        s_nw_reg      <= 0;
+        s_w_reg       <= 0;
       else
         s_cur_i := to_integer(signed(s_cur));
         s_n_i   := to_integer(signed(s_n));
@@ -96,7 +112,7 @@ begin
           elsif (in_ctrl.first_line = '0' and in_ctrl.first_in_line = '1') then
             local_sum_reg <= 2 * s_n_i + 2 * s_ne_i;
           elsif (in_ctrl.first_line = '0' and in_ctrl.last_in_line = '1') then
-            local_sum_reg <= s_w_i + s_nw_i + 3 * s_n_i;
+            local_sum_reg <= s_w_i + s_nw_i + 2 * s_n_i;
           end if;
         end if;
 
@@ -104,28 +120,38 @@ begin
         ctrl_reg  <= in_ctrl;
         t_reg     <= in_t;
         z_reg     <= in_z;
+        s_reg     <= s_cur;
+        s_cur_reg <= s_cur_i;
+        s_n_reg   <= s_n_i;
+        s_nw_reg  <= s_nw_i;
+        s_w_reg   <= s_w_i;
 
         --------------------------------------------------------------------------------
         -- Stage 2 - Compute local differences
         --------------------------------------------------------------------------------
-        local_sum <= to_signed(local_sum_reg, D+3);
 
         -- Central local difference
-        d_c <= to_signed(4 * s_cur_i - local_sum_reg, D+3);
+        if (ctrl_reg.first_line = '1' and ctrl_reg.first_in_line = '1') then
+          d_c       <= to_signed(0, D+3);
+          local_sum <= to_signed(0, D+3);
+        else
+          d_c       <= to_signed(4 * s_cur_reg - local_sum_reg, D+3);
+          local_sum <= to_signed(local_sum_reg, D+3);
+        end if;
 
         -- Directional local differences
         if (ctrl_reg.first_line = '0') then
-          d_n <= to_signed(4 * s_n_i - local_sum_reg, D+3);
+          d_n <= to_signed(4 * s_n_reg - local_sum_reg, D+3);
         else
           d_n <= to_signed(0, D+3);
         end if;
 
         if (ctrl_reg.first_in_line = '0' and ctrl_reg.first_line = '0') then
-          d_w  <= to_signed(4 * s_w_i - local_sum_reg, D+3);
-          d_nw <= to_signed(4 * s_nw_i - local_sum_reg, D+3);
+          d_w  <= to_signed(4 * s_w_reg - local_sum_reg, D+3);
+          d_nw <= to_signed(4 * s_nw_reg - local_sum_reg, D+3);
         elsif (ctrl_reg.first_in_line = '1' and ctrl_reg.first_line = '0') then
-          d_w  <= to_signed(4 * s_n_i - local_sum_reg, D+3);
-          d_nw <= to_signed(4 * s_n_i - local_sum_reg, D+3);
+          d_w  <= to_signed(4 * s_n_reg - local_sum_reg, D+3);
+          d_nw <= to_signed(4 * s_n_reg - local_sum_reg, D+3);
         else
           d_w  <= to_signed(0, D+3);
           d_nw <= to_signed(0, D+3);
@@ -135,6 +161,7 @@ begin
         out_ctrl  <= ctrl_reg;
         out_t     <= t_reg;
         out_z     <= z_reg;
+        out_s     <= s_reg;
       end if;
     end if;
   end process;

@@ -5,15 +5,17 @@ use work.common.all;
 
 entity local_diff_store is
   generic (
-    P : integer := 15;
-    D : integer := 8
+    NZ : integer := 100;
+    P  : integer := 15;
+    D  : integer := 8
     );
   port (
-    clk           : in std_logic;
-    aresetn       : in std_logic;
+    clk     : in std_logic;
+    aresetn : in std_logic;
 
     wr            : in std_logic;
     wr_local_diff : in signed(D+2 downto 0);
+    z             : in integer range 0 to NZ-1;
 
     local_diffs : out signed((D+3)*P-1 downto 0)
     );
@@ -30,7 +32,11 @@ begin
       else
         if (wr = '1') then
           local_diffs_reg(D+2 downto 0) <= wr_local_diff;
-          local_diffs_reg(local_diffs_reg'high-1 downto D+3) <= local_diffs_reg(local_diffs_reg'high-(D+3)-1 downto 0);
+          if (z < NZ-1) then
+            local_diffs_reg(local_diffs_reg'high downto D+3) <= local_diffs_reg(local_diffs_reg'high-(D+3) downto 0);
+          else
+            local_diffs_reg(local_diffs_reg'high downto D+3) <= (others => '0');
+          end if;
         end if;
       end if;
     end if;
