@@ -63,10 +63,15 @@ begin
   begin
     if (rising_edge(clk)) then
       if (aresetn = '0') then
-        numerator  <= (others => '0');
-        pred_s     <= (others => '0');
-        valid_regs <= (others => '0');
+        numerator      <= (others => '0');
+        pred_s         <= (others => '0');
+        valid_regs     <= (others => '0');
       else
+        --------------------------------------------------------------------------------
+        -- Stage 1 - compute numerator in scaled predicted sample expression
+        --------------------------------------------------------------------------------
+        numerator     <= resize(in_d_c + shift_left(resize(in_locsum, D+OMEGA+3), OMEGA), R);
+        valid_regs(0) <= in_valid;
         side_data_regs(0) <= (
           ctrl    => in_ctrl,
           z       => in_z,
@@ -75,23 +80,22 @@ begin
           weights => in_weights,
           diffs   => in_diffs,
           locsum  => in_locsum);
-        side_data_regs(1) <= side_data_regs(0);
 
-        if (in_ctrl.first_in_line = '1' and in_ctrl.first_line = '1') then
-          if (P > 0 and side_data_regs(1).z > 0) then
+        --------------------------------------------------------------------------------
+        -- Stage 2 - compute the scaled predicted sample
+        --------------------------------------------------------------------------------
+        if (side_data_regs(0).ctrl.first_in_line = '1' and side_data_regs(0).ctrl.first_line = '1') then
+          if (P > 0 and side_data_regs(0).z > 0) then
             pred_s <= shift_left(resize(side_data_regs(1).s, D+1), 1);  -- 2s_{z-1}(t)
           else
-            pred_s <= (others => '0');                         -- 2s_mid
+            pred_s <= (others => '0');  -- 2s_mid
           end if;
-          numerator <= (others => '0');
         else
-          numerator <= resize(in_d_c + shift_left(resize(side_data_regs(1).locsum, D+OMEGA+3), OMEGA), R);
-          pred_s    <= to_signed(clip(to_integer(shift_right(numerator, OMEGA+1) + 1), -2**D, 2**D-1), D+1);
+          pred_s <= to_signed(clip(to_integer(shift_right(numerator, OMEGA+1) + 1), -2**D, 2**D-1), D+1);
         end if;
 
-        -- Propagate valid signal
-        valid_regs(0) <= in_valid;
-        valid_regs(1) <= valid_regs(0);
+        side_data_regs(1) <= side_data_regs(0);
+        valid_regs(1)     <= valid_regs(0);
       end if;
     end if;
   end process;
