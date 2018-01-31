@@ -51,8 +51,10 @@ begin
         rd_idx <= 0;
         wr_idx <= fifo'high;
       else
-        rd_idx <= wrap_inc(rd_idx, fifo'high);
-        wr_idx <= wrap_inc(wr_idx, fifo'high);
+        if (in_valid = '1') then
+          rd_idx <= wrap_inc(rd_idx, fifo'high);
+          wr_idx <= wrap_inc(wr_idx, fifo'high);
+        end if;
       end if;
     end if;
   end process;
