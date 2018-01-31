@@ -35,7 +35,7 @@ begin
           if (z < NZ-1) then
             local_diffs_reg(local_diffs_reg'high downto D+3) <= local_diffs_reg(local_diffs_reg'high-(D+3) downto 0);
           else
-            local_diffs_reg(local_diffs_reg'high downto D+3) <= (others => '0');
+            local_diffs_reg(local_diffs_reg'high downto 0) <= (others => '0');
           end if;
         end if;
       end if;
