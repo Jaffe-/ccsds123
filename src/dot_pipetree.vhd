@@ -64,8 +64,8 @@ architecture rtl of dot_product is
 
   signal side_data_regs : side_data_arr_t;
 
-  type s_vec_t is array(natural range <>) of signed(A_SIZE+B_SIZE-1 downto 0);
-  signal sums : s_vec_t(2**(STAGES+1)-2 downto 0);
+  type s_vec_t is array(0 to 2**(STAGES+1)-2) of signed(A_SIZE+B_SIZE-1 downto 0);
+  signal sums : s_vec_t;
 begin
 
   -- Generate the pipeline stages
@@ -101,7 +101,7 @@ begin
           sums(2**STAGES + i) <= sums(2*i) + sums(2*i+1);
         end loop;
 
-        for i in 1 to STAGES loop
+        For i in 1 to STAGES loop
           valid_regs(i)     <= valid_regs(i-1);
           side_data_regs(i) <= side_data_regs(i-1);
         end loop;
