@@ -12,6 +12,8 @@ module top_tb;
 
    parameter PERIOD = 10;
 
+   parameter BUBBLES = 1;
+
    reg clk, aresetn;
    reg [D-1:0] s_axis_tdata;
    reg         s_axis_tvalid;
@@ -37,7 +39,8 @@ module top_tb;
       .res(res),
       .res_valid(res_valid));
 
-   integer          i;
+   integer          i, wr_i;
+   integer          f_out;
 
    always #(PERIOD/2) clk = ~clk;
 
@@ -51,15 +54,31 @@ module top_tb;
       aresetn <= 1'b1;
 
       for (i = 0; i < NX*NY*NZ; i = i + 1) begin
-         s_axis_tdata <= i;
-         while ($urandom % 3 != 0) begin
-            s_axis_tvalid <= 1'b0;
-            @(posedge clk);
+         if (BUBBLES) begin
+            while ($urandom % 3 != 0) begin
+               s_axis_tdata <= 0;
+               s_axis_tvalid <= 1'b0;
+               @(posedge clk);
+            end
          end
+         s_axis_tdata <= i;
          s_axis_tvalid <= 1'b1;
          @(posedge clk);
       end;
 
       s_axis_tvalid <= 1'b0;
+   end;
+
+   initial begin
+      f_out = $fopen("output.txt","w");
+      wr_i = 0;
+      while (wr_i < NX*NY*NZ) begin
+         @(posedge clk);
+         if (res_valid) begin
+            $fwrite(f_out, "%d\n", res);
+            wr_i = wr_i + 1;
+         end
+      end
+      $fclose(f_out);
    end;
 endmodule // top_tb
