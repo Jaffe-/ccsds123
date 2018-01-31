@@ -33,6 +33,13 @@ architecture rtl of ccsds123_top is
   signal in_handshake : std_logic;
   signal in_ready     : std_logic;
 
+  subtype t_type is integer range 0 to NX*NY-1;
+  subtype z_type is integer range 0 to NZ-1;
+  subtype sample_type is signed(D-1 downto 0);
+  subtype locsum_type is signed(D+2 downto 0);
+  subtype weights_type is signed(CZ*(OMEGA+3)-1 downto 0);
+  subtype diffs_type is signed(CZ*(D+3)-1 downto 0);
+
   signal from_ctrl_ctrl : ctrl_t;
   signal from_ctrl_z    : integer range 0 to NZ-1;
   signal from_ctrl_t    : integer range 0 to NX*NY-1;
@@ -44,10 +51,10 @@ architecture rtl of ccsds123_top is
 
   signal from_local_diff_ctrl   : ctrl_t;
   signal from_local_diff_valid  : std_logic;
-  signal from_local_diff_z      : integer range 0 to NZ-1;
-  signal from_local_diff_t      : integer range 0 to NX*NY-1;
-  signal from_local_diff_s      : signed(D-1 downto 0);
-  signal from_local_diff_locsum : signed(D+2 downto 0);
+  signal from_local_diff_z      : z_type;
+  signal from_local_diff_t      : t_type;
+  signal from_local_diff_s      : sample_type;
+  signal from_local_diff_locsum : locsum_type;
   signal d_c                    : signed(D+2 downto 0);
   signal d_n                    : signed(D+2 downto 0);
   signal d_nw                   : signed(D+2 downto 0);
@@ -58,25 +65,25 @@ architecture rtl of ccsds123_top is
   signal pred_d_c         : signed(D+3+OMEGA+3-1 downto 0);
   signal from_dot_valid   : std_logic;
   signal from_dot_ctrl    : ctrl_t;
-  signal from_dot_s       : from_local_diff_s'subtype;
-  signal from_dot_locsum  : from_local_diff_locsum'subtype;
-  signal from_dot_z       : from_local_diff_z'subtype;
-  signal from_dot_t       : from_local_diff_t'subtype;
-  signal from_dot_weights : weights'subtype;
-  signal from_dot_diffs   : local_diffs'subtype;
+  signal from_dot_s       : sample_type;
+  signal from_dot_locsum  : locsum_type;
+  signal from_dot_z       : z_type;
+  signal from_dot_t       : t_type;
+  signal from_dot_weights : weights_type;
+  signal from_dot_diffs   : diffs_type;
 
   signal from_pred_valid   : std_logic;
   signal from_pred_pred_s  : signed(D downto 0);
   signal from_pred_ctrl    : ctrl_t;
-  signal from_pred_s       : from_local_diff_s'subtype;
-  signal from_pred_z       : from_local_diff_z'subtype;
-  signal from_pred_t       : from_local_diff_t'subtype;
-  signal from_pred_weights : weights'subtype;
-  signal from_pred_diffs   : local_diffs'subtype;
+  signal from_pred_s       : sample_type;
+  signal from_pred_z       : z_type;
+  signal from_pred_t       : t_type;
+  signal from_pred_weights : weights_type;
+  signal from_pred_diffs   : diffs_type;
 
   signal from_w_update_valid   : std_logic;
-  signal from_w_update_z       : from_local_diff_z'subtype;
-  signal from_w_update_weights : weights'subtype;
+  signal from_w_update_z       : z_type;
+  signal from_w_update_weights : weights_type;
 
   signal from_res_mapper_valid : std_logic;
   signal from_res_mapper_delta : unsigned(D-1 downto 0);

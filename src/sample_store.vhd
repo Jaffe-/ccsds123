@@ -50,10 +50,10 @@ entity sample_store is
 end sample_store;
 
 architecture rtl of sample_store is
-  signal from_w_fifo_sample  : in_sample'subtype;
-  signal from_ne_fifo_sample : in_sample'subtype;
-  signal from_n_fifo_sample  : in_sample'subtype;
-  signal from_nw_fifo_sample : in_sample'subtype;
+  signal from_w_fifo_sample  : std_logic_vector(D-1 downto 0);
+  signal from_ne_fifo_sample : std_logic_vector(D-1 downto 0);
+  signal from_n_fifo_sample  : std_logic_vector(D-1 downto 0);
+  signal from_nw_fifo_sample : std_logic_vector(D-1 downto 0);
 begin
   i_w_fifo : entity work.fifo
     generic map (

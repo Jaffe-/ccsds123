@@ -40,10 +40,10 @@ entity local_diff is
     d_nw      : out signed(D+2 downto 0);
     d_w       : out signed(D+2 downto 0);
 
-    out_valid : out in_valid'subtype;
-    out_ctrl  : out in_ctrl'subtype;
-    out_t     : out in_t'subtype;
-    out_z     : out in_z'subtype;
+    out_valid : out std_logic;
+    out_ctrl  : out ctrl_t;
+    out_t     : out integer range 0 to NX*NY-1;
+    out_z     : out integer range 0 to NZ-1;
     out_s     : out signed(D-1 downto 0)
     );
 end local_diff;
@@ -52,11 +52,11 @@ architecture rtl of local_diff is
   signal local_sum_reg : integer range -2**(D+2) to 2**(D+2)-1;
 
   -- Registers to keep control signals in sync with data
-  signal valid_reg : in_valid'subtype;
-  signal ctrl_reg  : in_ctrl'subtype;
-  signal t_reg     : in_t'subtype;
-  signal z_reg     : in_z'subtype;
-  signal s_reg     : s_cur'subtype;
+  signal valid_reg : std_logic;
+  signal ctrl_reg  : ctrl_t;
+  signal t_reg     : integer range 0 to NX*NY-1;
+  signal z_reg     : integer range 0 to NZ-1;
+  signal s_reg     : signed(D-1 downto 0);
 
   subtype sample_range is integer range -2**(D-1) to 2**(D-1)-1;
   signal s_cur_reg : sample_range;
