@@ -6,11 +6,11 @@ use work.common.all;
 entity ccsds123_top is
   generic (
     COL_ORIENTED : boolean := false;
-    OMEGA        : integer := 8;
+    OMEGA        : integer := 19;
     CZ           : integer := 4;
-    D            : integer := 8;
+    D            : integer := 16;
     P            : integer := 1;
-    R            : integer := 32;
+    R            : integer := 64;
     NX           : integer := 500;
     NY           : integer := 500;
     NZ           : integer := 100
@@ -24,7 +24,7 @@ entity ccsds123_top is
     s_axis_tvalid : in  std_logic;
     s_axis_tready : out std_logic;
 
-    res       : out signed(D downto 0);
+    res       : out unsigned(D-1 downto 0);
     res_valid : out std_logic
     );
 end ccsds123_top;
@@ -77,6 +77,9 @@ architecture rtl of ccsds123_top is
   signal from_w_update_valid   : std_logic;
   signal from_w_update_z       : from_local_diff_z'subtype;
   signal from_w_update_weights : weights'subtype;
+
+  signal from_res_mapper_valid : std_logic;
+  signal from_res_mapper_delta : unsigned(D-1 downto 0);
 begin
   in_ready      <= '1';                 -- for now
   in_handshake  <= s_axis_tvalid and in_ready;
@@ -140,8 +143,8 @@ begin
       local_sum => from_local_diff_locsum,
       d_c       => d_c,
       d_n       => local_diffs((D+3)*(P+3)-1 downto (D+3)*(P+2)),
-      d_nw      => local_diffs((D+3)*(P+2)-1 downto (D+3)*(P+1)),
-      d_w       => local_diffs((D+3)*(P+1)-1 downto (D+3)*P),
+      d_w       => local_diffs((D+3)*(P+2)-1 downto (D+3)*(P+1)),
+      d_nw      => local_diffs((D+3)*(P+1)-1 downto (D+3)*P),
       out_valid => from_local_diff_valid,
       out_ctrl  => from_local_diff_ctrl,
       out_t     => from_local_diff_t,
@@ -252,9 +255,6 @@ begin
       out_weights => from_pred_weights,
       out_diffs   => from_pred_diffs);
 
-  res       <= from_pred_pred_s;
-  res_valid <= from_pred_valid;
-
   i_weight_update : entity work.weight_update
     generic map (
       NX    => NX,
@@ -280,4 +280,22 @@ begin
       out_valid   => from_w_update_valid,
       out_z       => from_w_update_z,
       out_weights => from_w_update_weights);
+
+  i_residual_mapper : entity work.residual_mapper
+    generic map (
+      D => D)
+    port map (
+      clk     => clk,
+      aresetn => aresetn,
+
+      in_valid         => from_pred_valid,
+      in_s             => from_pred_s,
+      in_scaled_pred_s => from_pred_pred_s,
+
+      out_valid => from_res_mapper_valid,
+      out_delta => from_res_mapper_delta);
+
+  res       <= from_res_mapper_delta;
+  res_valid <= from_res_mapper_valid;
+
 end rtl;
