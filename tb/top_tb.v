@@ -4,10 +4,12 @@ module top_tb;
    parameter NX = 4;
    parameter NY = 4;
    parameter NZ = 16;
-   parameter D = 8;
+   parameter D = 16;
    parameter P = 4;
+   parameter R = 32;
    parameter CZ = 7;
    parameter OMEGA = 10;
+
    parameter PERIOD = 10;
 
    reg clk, aresetn;
@@ -15,14 +17,15 @@ module top_tb;
    reg         s_axis_tvalid;
 
    wire        s_axis_tready;
-   wire [D:0]  res;
-   wire        res_valid;
+   wire [D-1:0]  res;
+   wire         res_valid;
 
    ccsds123_top #(.D(D),
                   .NX(NX),
                   .NY(NY),
                   .NZ(NZ),
                   .P(P),
+                  .R(R),
                   .CZ(CZ),
                   .OMEGA(OMEGA))
    i_top (
@@ -49,6 +52,10 @@ module top_tb;
 
       for (i = 0; i < NX*NY*NZ; i = i + 1) begin
          s_axis_tdata <= i;
+         while ($urandom % 3 != 0) begin
+            s_axis_tvalid <= 1'b0;
+            @(posedge clk);
+         end
          s_axis_tvalid <= 1'b1;
          @(posedge clk);
       end;
