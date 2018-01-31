@@ -65,13 +65,13 @@ architecture rtl of weight_update is
   function init_weight_vec return weight_vec_t is
     variable weight_vec : weight_vec_t;
   begin
-    weight_vec(0) := to_signed(0, OMEGA+3);
-    weight_vec(1) := to_signed(0, OMEGA+3);
-    weight_vec(2) := to_signed(0, OMEGA+3);
-    weight_vec(3) := to_signed(7 * (2**OMEGA / 8), OMEGA+3);
-    for i in 4 to CZ-1 loop
+    weight_vec(0) := to_signed(7 * (2**OMEGA / 8), OMEGA+3);
+    for i in 1 to CZ-4 loop
       weight_vec(i) := to_signed(to_integer(weight_vec(i-1) / 8), OMEGA+3);
     end loop;
+    weight_vec(CZ-3) := to_signed(0, OMEGA+3);
+    weight_vec(CZ-2) := to_signed(0, OMEGA+3);
+    weight_vec(CZ-1) := to_signed(0, OMEGA+3);
     return weight_vec;
   end function init_weight_vec;
 
@@ -135,7 +135,7 @@ begin
         ctrl_regs(1)   <= ctrl_regs(0);
 
         for comp in 0 to CZ-1 loop
-          for i in V_MIN to V_MAX loop
+          for i in V_MIN + D - OMEGA to V_MAX + D - OMEGA loop
             if (scale_exponent = i) then
               -- p(t) is positive, meaning that the exponent -p(t) is NEGATIVE,
               -- and shifting is to the right
