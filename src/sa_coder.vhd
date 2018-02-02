@@ -143,9 +143,9 @@ begin
           accumulator_wr_data <= ((3 * 2**(KZ_PRIME + 6) - 49) * 2**INITIAL_COUNT) / 2**7;
         else
           if (counter_reg < 2**COUNTER_SIZE - 1) then
-            accumulator_wr_data <= accumulator_rd_data + to_integer(in_residual);
+            accumulator_wr_data <= accumulator_rd_data + to_integer(unsigned(residual_regs(0)));
           else
-            accumulator_wr_data <= (accumulator_rd_data + to_integer(in_residual) + 1) / 2;
+            accumulator_wr_data <= (accumulator_rd_data + to_integer(unsigned(residual_regs(0))) + 1) / 2;
           end if;
         end if;
         accumulator_wr   <= valid_regs(0);
