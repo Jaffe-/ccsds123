@@ -30,8 +30,10 @@ entity sa_encoder is
 end sa_encoder;
 
 architecture rtl of sa_encoder is
-  signal counter     : integer range 0 to 2**COUNTER_SIZE-1;
-  signal counter_reg : integer range 0 to 2**COUNTER_SIZE-1;
+  signal counter : integer range 0 to 2**COUNTER_SIZE-1;
+
+  type counter_arr_t is array(0 to 1) of integer range 0 to 2**COUNTER_SIZE-1;
+  signal counter_regs : counter_arr_t;
 
   type z_arr_t is array (0 to 1) of integer range 0 to NZ-1;
   signal z_regs : z_arr_t;
@@ -81,7 +83,7 @@ begin
     end if;
   end process;
 
-  -- Counter and accumulator update
+  -- Counter update
   process (clk)
   begin
     if (rising_edge(clk)) then
@@ -113,6 +115,7 @@ begin
       if (aresetn = '0') then
         rhs                 <= 0;
         rhs_part            <= 0;
+        counter_regs        <= (others => 0);
         z_regs              <= (others => 0);
         ctrl_regs           <= (others => ('0', '0', '0', '0'));
         residual_regs       <= (others => (others => '0'));
@@ -125,9 +128,9 @@ begin
         -- Stage 1 - Compute floor(49/2^7 * counter(t))
         -- Accumulator for current band is fetched from RAM during this cycle
         --------------------------------------------------------------------------------
-        rhs_part    <= (49 * counter) / 2**7;
-        counter_reg <= counter;
+        rhs_part <= (49 * counter) / 2**7;
 
+        counter_regs(0)  <= counter;
         valid_regs(0)    <= in_valid;
         z_regs(0)        <= in_z;
         ctrl_regs(0)     <= in_ctrl;
@@ -142,7 +145,7 @@ begin
         if (ctrl_regs(0).first_in_line = '1' and ctrl_regs(0).first_line = '1') then
           accumulator_wr_data <= ((3 * 2**(KZ_PRIME + 6) - 49) * 2**INITIAL_COUNT) / 2**7;
         else
-          if (counter_reg < 2**COUNTER_SIZE - 1) then
+          if (counter_regs(0) < 2**COUNTER_SIZE - 1) then
             accumulator_wr_data <= accumulator_rd_data + to_integer(unsigned(residual_regs(0)));
           else
             accumulator_wr_data <= (accumulator_rd_data + to_integer(unsigned(residual_regs(0))) + 1) / 2;
@@ -151,6 +154,7 @@ begin
         accumulator_wr   <= valid_regs(0);
         accumulator_wr_z <= z_regs(0);
 
+        counter_regs(1)  <= counter_regs(0);
         valid_regs(1)    <= valid_regs(0);
         z_regs(1)        <= z_regs(0);
         ctrl_regs(1)     <= ctrl_regs(0);
@@ -159,12 +163,12 @@ begin
         --------------------------------------------------------------------------------
         -- Stage 3 - Compute k_z(t)
         --------------------------------------------------------------------------------
-        if (2 * counter > rhs) then
+        if (2 * counter_regs(1) > rhs) then
           k_z <= 0;
         else
           k_z <= 0;
           for i in 1 to D - 2 loop
-            if (counter * 2**i <= rhs) then
+            if (counter_regs(1) * 2**i <= rhs) then
               k_z <= i;
             end if;
           end loop;
