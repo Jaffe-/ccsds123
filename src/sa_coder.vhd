@@ -111,7 +111,6 @@ begin
   begin
     if (rising_edge(clk)) then
       if (aresetn = '0') then
-        counter             <= 2**INITIAL_COUNT;
         rhs                 <= 0;
         rhs_part            <= 0;
         z_regs              <= (others => 0);
@@ -187,7 +186,7 @@ begin
               u_z := to_integer(unsigned(residual_regs(2))) / 2**i;
               if (u_z < UMAX) then
                 code_word     <= (code_word'high downto i+1 => '0') & '1' & residual_regs(2)(i-1 downto 0);
-                code_num_bits <= u_z + k_z + 1;
+                code_num_bits <= u_z + i + 1;
               else
                 code_word     <= (code_word'high downto D => '0') & residual_regs(2);
                 code_num_bits <= UMAX + D;
@@ -197,7 +196,6 @@ begin
         end if;
         valid_regs(3) <= valid_regs(2);
         ctrl_regs(3)  <= ctrl_regs(2);
-
       end if;
     end if;
   end process;

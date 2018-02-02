@@ -10,6 +10,12 @@ module top_tb;
    parameter CZ = 7;
    parameter OMEGA = 10;
 
+   // Encoder options
+   parameter KZ_PRIME = 8;
+   parameter COUNTER_SIZE = 8;
+   parameter INITIAL_COUNT = 6;
+   parameter UMAX = 9;
+
    parameter PERIOD = 10;
 
    parameter BUBBLES = 1;
@@ -22,16 +28,21 @@ module top_tb;
    wire [D-1:0]  res;
    wire         res_valid;
 
-   ccsds123_top #(.D(D),
-                  .NX(NX),
-                  .NY(NY),
-                  .NZ(NZ),
-                  .P(P),
-                  .R(R),
-                  .CZ(CZ),
-                  .OMEGA(OMEGA))
-   i_top (
-      .clk(clk),
+   ccsds123_top
+     #(.D(D),
+       .NX(NX),
+       .NY(NY),
+       .NZ(NZ),
+       .P(P),
+       .R(R),
+       .CZ(CZ),
+       .OMEGA(OMEGA),
+       .UMAX(UMAX),
+       .COUNTER_SIZE(COUNTER_SIZE),
+       .INITIAL_COUNT(INITIAL_COUNT),
+       .KZ_PRIME(KZ_PRIME))
+   i_top
+     (.clk(clk),
       .aresetn(aresetn),
       .s_axis_tdata(s_axis_tdata),
       .s_axis_tvalid(s_axis_tvalid),

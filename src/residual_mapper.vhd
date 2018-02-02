@@ -5,17 +5,22 @@ use work.common.all;
 
 entity residual_mapper is
   generic (
-    D : integer := 8
+    D  : integer := 8;
+    NZ : integer := 100
     );
   port (
     clk     : in std_logic;
     aresetn : in std_logic;
 
     in_valid         : in std_logic;
+    in_ctrl          : in ctrl_t;
+    in_z             : in integer range 0 to NZ-1;
     in_s             : in signed(D-1 downto 0);
     in_scaled_pred_s : in signed(D downto 0);
 
     out_valid : out std_logic;
+    out_ctrl  : out ctrl_t;
+    out_z     : out integer range 0 to NZ-1;
     out_delta : out unsigned(D-1 downto 0)
     );
 
@@ -26,6 +31,9 @@ architecture rtl of residual_mapper is
   signal theta                : integer range -2**D to 2**D-1;
   signal valid_reg            : std_logic;
   signal in_scaled_pred_s_odd : std_logic;
+
+  signal ctrl_reg : ctrl_t;
+  signal z_reg    : integer range 0 to NZ-1;
 
   function get_min(a : integer; b : integer) return integer is
   begin
@@ -47,6 +55,8 @@ begin
         theta                <= 0;
         valid_reg            <= '0';
         in_scaled_pred_s_odd <= '0';
+        ctrl_reg             <= ('0', '0', '0', '0');
+        z_reg                <= 0;
       else
         --------------------------------------------------------------------------------
         -- Stage 1 - compute residual and Theta
@@ -55,8 +65,11 @@ begin
 
         residual             <= in_s - pred_s;
         theta                <= get_min(to_integer(pred_s) + 2**(D-1), (2**(D-1)-1) - to_integer(pred_s));
-        valid_reg            <= in_valid;
         in_scaled_pred_s_odd <= in_scaled_pred_s(0);
+
+        valid_reg <= in_valid;
+        ctrl_reg  <= in_ctrl;
+        z_reg     <= in_z;
 
         --------------------------------------------------------------------------------
         -- Stage 2 - choose mapped residual
@@ -65,12 +78,15 @@ begin
         if (to_integer(abs_residual) > theta) then
           out_delta <= abs_residual + theta;
         elsif ((in_scaled_pred_s_odd = '0' and to_integer(residual) >= 0 and to_integer(residual) <= theta)
-               or (in_scaled_pred_s_odd = '1' and to_integer(residual) <= 0 and -to_integer(residual) <= theta)) then
+               or (in_scaled_pred_s_odd = '1' and to_integer(residual)                            <= 0 and -to_integer(residual) <= theta)) then
           out_delta <= shift_left(abs_residual, 1);
         else
           out_delta <= shift_left(abs_residual, 1) - 1;
         end if;
+
         out_valid <= valid_reg;
+        out_ctrl  <= ctrl_reg;
+        out_z     <= z_reg;
       end if;
     end if;
   end process;

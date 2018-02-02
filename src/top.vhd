@@ -5,15 +5,19 @@ use work.common.all;
 
 entity ccsds123_top is
   generic (
-    COL_ORIENTED : boolean := false;
-    OMEGA        : integer := 19;
-    CZ           : integer := 4;
-    D            : integer := 16;
-    P            : integer := 1;
-    R            : integer := 64;
-    NX           : integer := 500;
-    NY           : integer := 500;
-    NZ           : integer := 100
+    COL_ORIENTED  : boolean := false;
+    OMEGA         : integer := 19;
+    CZ            : integer := 4;
+    D             : integer := 16;
+    P             : integer := 1;
+    R             : integer := 64;
+    UMAX          : integer := 9;
+    KZ_PRIME      : integer := 8;
+    COUNTER_SIZE  : integer := 8;
+    INITIAL_COUNT : integer := 6;
+    NX            : integer := 500;
+    NY            : integer := 500;
+    NZ            : integer := 100
     );
   port (
     clk     : in std_logic;
@@ -24,8 +28,9 @@ entity ccsds123_top is
     s_axis_tvalid : in  std_logic;
     s_axis_tready : out std_logic;
 
-    res       : out unsigned(D-1 downto 0);
-    res_valid : out std_logic
+    res          : out std_logic_vector(UMAX + D-1 downto 0);
+    res_num_bits : out integer range 0 to UMAX + D;
+    res_valid    : out std_logic
     );
 end ccsds123_top;
 
@@ -87,6 +92,13 @@ architecture rtl of ccsds123_top is
 
   signal from_res_mapper_valid : std_logic;
   signal from_res_mapper_delta : unsigned(D-1 downto 0);
+  signal from_res_mapper_z     : z_type;
+  signal from_res_mapper_ctrl  : ctrl_t;
+
+  signal from_encoder_valid    : std_logic;
+  signal from_encoder_last     : std_logic;
+  signal from_encoder_data     : std_logic_vector(UMAX + D-1 downto 0);
+  signal from_encoder_num_bits : integer range 0 to UMAX + D;
 begin
   in_ready      <= '1';                 -- for now
   in_handshake  <= s_axis_tvalid and in_ready;
@@ -290,19 +302,47 @@ begin
 
   i_residual_mapper : entity work.residual_mapper
     generic map (
-      D => D)
+      D  => D,
+      NZ => NZ)
     port map (
       clk     => clk,
       aresetn => aresetn,
 
       in_valid         => from_pred_valid,
+      in_ctrl          => from_pred_ctrl,
+      in_z             => from_pred_z,
       in_s             => from_pred_s,
       in_scaled_pred_s => from_pred_pred_s,
 
       out_valid => from_res_mapper_valid,
+      out_ctrl  => from_res_mapper_ctrl,
+      out_z     => from_res_mapper_z,
       out_delta => from_res_mapper_delta);
 
-  res       <= from_res_mapper_delta;
-  res_valid <= from_res_mapper_valid;
+  i_sa_encoder : entity work.sa_encoder
+    generic map (
+      NZ            => NZ,
+      D             => D,
+      UMAX          => UMAX,
+      KZ_PRIME      => KZ_PRIME,
+      COUNTER_SIZE  => COUNTER_SIZE,
+      INITIAL_COUNT => INITIAL_COUNT)
+    port map (
+      clk     => clk,
+      aresetn => aresetn,
+
+      in_valid    => from_res_mapper_valid,
+      in_ctrl     => from_res_mapper_ctrl,
+      in_z        => from_res_mapper_z,
+      in_residual => from_res_mapper_delta,
+
+      out_valid    => from_encoder_valid,
+      out_last     => from_encoder_last,
+      out_data     => from_encoder_data,
+      out_num_bits => from_encoder_num_bits);
+
+  res          <= from_encoder_data;
+  res_num_bits <= from_encoder_num_bits;
+  res_valid    <= from_encoder_valid;
 
 end rtl;
