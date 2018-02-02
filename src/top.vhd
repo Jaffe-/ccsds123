@@ -15,6 +15,7 @@ entity ccsds123_top is
     KZ_PRIME      : integer := 8;
     COUNTER_SIZE  : integer := 8;
     INITIAL_COUNT : integer := 6;
+    BUS_WIDTH     : integer := 16;
     NX            : integer := 500;
     NY            : integer := 500;
     NZ            : integer := 100
@@ -28,9 +29,8 @@ entity ccsds123_top is
     s_axis_tvalid : in  std_logic;
     s_axis_tready : out std_logic;
 
-    res          : out std_logic_vector(UMAX + D-1 downto 0);
-    res_num_bits : out integer range 0 to UMAX + D;
-    res_valid    : out std_logic
+    res       : out std_logic_vector(BUS_WIDTH-1 downto 0);
+    res_valid : out std_logic
     );
 end ccsds123_top;
 
@@ -341,8 +341,21 @@ begin
       out_data     => from_encoder_data,
       out_num_bits => from_encoder_num_bits);
 
-  res          <= from_encoder_data;
-  res_num_bits <= from_encoder_num_bits;
-  res_valid    <= from_encoder_valid;
+  i_packer : entity work.packer
+    generic map (
+      BUS_WIDTH    => BUS_WIDTH,
+      MAX_IN_WIDTH => UMAX + D)
+    port map (
+      clk     => clk,
+      aresetn => aresetn,
+
+      in_valid    => from_encoder_valid,
+      in_last     => from_encoder_last,
+      in_data     => from_encoder_data,
+      in_num_bits => from_encoder_num_bits,
+
+      out_valid => res_valid,
+      out_last  => open,
+      out_data  => res);
 
 end rtl;
