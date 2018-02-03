@@ -4,6 +4,7 @@ use IEEE.NUMERIC_STD.all;
 
 entity weight_store is
   generic (
+    DELAY : integer := 1;
     OMEGA : integer := 8;
     CZ    : integer := 4;
     NZ    : integer := 100
@@ -24,9 +25,12 @@ entity weight_store is
 end weight_store;
 
 architecture rtl of weight_store is
-  type weight_vec_t is array (natural range 0 to NZ-1) of signed(CZ*(OMEGA+3)-1 downto 0);
+  type weight_vec_t is array (0 to NZ-1) of signed(CZ*(OMEGA+3)-1 downto 0);
   signal weights         : weight_vec_t;
   signal weight_from_ram : signed(CZ*(OMEGA+3)-1 downto 0);
+
+  type delay_stages_t is array (0 to DELAY-1) of signed(CZ*(OMEGA+3)-1 downto 0);
+  signal delay_stages : delay_stages_t;
 begin
   process (clk)
   begin
@@ -41,12 +45,17 @@ begin
   begin
     if (rising_edge(clk)) then
       if (aresetn = '0') then
-        rd_weight <= (others => '0');
+        delay_stages(0) <= (others => '0');
       end if;
       if (rd = '1') then
-        weight_from_ram <= weights(rd_z);
+        delay_stages(0) <= weights(rd_z);
+        if (DELAY > 0) then
+          for i in 1 to DELAY-1 loop
+            delay_stages(i) <= delay_stages(i-1);
+          end loop;
+        end if;
       end if;
-      rd_weight <= weight_from_ram;
     end if;
   end process;
+  rd_weight <= delay_stages(DELAY-1);
 end rtl;

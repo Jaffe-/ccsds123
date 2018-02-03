@@ -29,8 +29,9 @@ entity ccsds123_top is
     s_axis_tvalid : in  std_logic;
     s_axis_tready : out std_logic;
 
-    res       : out std_logic_vector(BUS_WIDTH-1 downto 0);
-    res_valid : out std_logic
+    out_data  : out std_logic_vector(BUS_WIDTH-1 downto 0);
+    out_valid : out std_logic;
+    out_last  : out std_logic
     );
 end ccsds123_top;
 
@@ -187,6 +188,7 @@ begin
 
   i_weight_store : entity work.weight_store
     generic map (
+      DELAY => 3,
       OMEGA => OMEGA,
       CZ    => CZ,
       NZ    => NZ)
@@ -354,8 +356,8 @@ begin
       in_data     => from_encoder_data,
       in_num_bits => from_encoder_num_bits,
 
-      out_valid => res_valid,
-      out_last  => open,
-      out_data  => res);
+      out_valid => out_valid,
+      out_last  => out_last,
+      out_data  => out_data);
 
 end rtl;
