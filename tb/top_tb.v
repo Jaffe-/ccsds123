@@ -29,6 +29,7 @@ module top_tb;
    wire        s_axis_tready;
    wire [BUS_WIDTH-1:0] res;
    wire         res_valid;
+   wire         res_last;
 
    ccsds123_top
      #(.D(D),
@@ -50,8 +51,9 @@ module top_tb;
       .s_axis_tdata(s_axis_tdata),
       .s_axis_tvalid(s_axis_tvalid),
       .s_axis_tready(s_axis_tready),
-      .res(res),
-      .res_valid(res_valid));
+      .out_data(res),
+      .out_valid(res_valid),
+      .out_last(res_last));
 
    integer          i, wr_i;
    integer          f_out;
@@ -85,14 +87,13 @@ module top_tb;
 
    initial begin
       f_out = $fopen("output.txt","w");
-      wr_i = 0;
-      while (wr_i < NX*NY*NZ) begin
+      while (res_last !== 1'b1) begin
          @(posedge clk);
          if (res_valid) begin
             $fwrite(f_out, "%x\n", res);
-            wr_i = wr_i + 1;
          end
       end
+      $display("Done.\n");
       $fclose(f_out);
    end;
 endmodule // top_tb
