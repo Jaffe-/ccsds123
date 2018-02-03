@@ -11,21 +11,23 @@ module top_tb;
    parameter OMEGA = 10;
 
    // Encoder options
-   parameter KZ_PRIME = 8;
-   parameter COUNTER_SIZE = 8;
-   parameter INITIAL_COUNT = 6;
-   parameter UMAX = 9;
+   parameter KZ_PRIME = 5;
+   parameter COUNTER_SIZE = 6;
+   parameter INITIAL_COUNT = 1;
+   parameter UMAX = 16;
+
+   parameter BUS_WIDTH = 32;
 
    parameter PERIOD = 10;
 
-   parameter BUBBLES = 1;
+   parameter BUBBLES = 0;
 
    reg clk, aresetn;
    reg [D-1:0] s_axis_tdata;
    reg         s_axis_tvalid;
 
    wire        s_axis_tready;
-   wire [D-1:0]  res;
+   wire [BUS_WIDTH-1:0] res;
    wire         res_valid;
 
    ccsds123_top
@@ -40,7 +42,8 @@ module top_tb;
        .UMAX(UMAX),
        .COUNTER_SIZE(COUNTER_SIZE),
        .INITIAL_COUNT(INITIAL_COUNT),
-       .KZ_PRIME(KZ_PRIME))
+       .KZ_PRIME(KZ_PRIME),
+       .BUS_WIDTH(BUS_WIDTH))
    i_top
      (.clk(clk),
       .aresetn(aresetn),
@@ -86,7 +89,7 @@ module top_tb;
       while (wr_i < NX*NY*NZ) begin
          @(posedge clk);
          if (res_valid) begin
-            $fwrite(f_out, "%d\n", res);
+            $fwrite(f_out, "%x\n", res);
             wr_i = wr_i + 1;
          end
       end
