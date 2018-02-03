@@ -39,7 +39,8 @@ architecture rtl of sa_encoder is
   signal z_regs : z_arr_t;
 
   type residual_arr_t is array (0 to 2) of std_logic_vector(D-1 downto 0);
-  signal residual_regs : residual_arr_t;
+  signal residual_regs      : residual_arr_t;
+  signal k_shifted_residual : std_logic_vector(D-1 downto 0);
 
   type ctrl_arr_t is array (0 to 3) of ctrl_t;
   signal ctrl_regs : ctrl_arr_t;
@@ -50,6 +51,7 @@ architecture rtl of sa_encoder is
   signal rhs_part : integer range 0 to 2**COUNTER_SIZE-1;
 
   signal k_z           : integer range 0 to D-2;
+  signal u_z           : integer range 0 to 2**D-1;
   signal code_word     : std_logic_vector(UMAX + D - 1 downto 0);
   signal code_num_bits : integer range 0 to UMAX + D;
 
@@ -109,7 +111,6 @@ begin
 
   -- Pipeline
   process (clk)
-    variable u_z : integer range 0 to 2**D-1;
   begin
     if (rising_edge(clk)) then
       if (aresetn = '0') then
@@ -169,7 +170,9 @@ begin
           k_z <= 0;
           for i in 1 to D - 2 loop
             if (counter_regs(1) * 2**i <= rhs) then
-              k_z <= i;
+              k_z                <= i;
+              u_z                <= to_integer(unsigned(residual_regs(1))) / 2**i;
+              k_shifted_residual <= residual_regs(1)(i-1 downto 0) & (D-i-1 downto 0 => '0');
             end if;
           end loop;
         end if;
@@ -182,19 +185,16 @@ begin
         -- Stage 4 - Compute code word
         --------------------------------------------------------------------------------
         if (ctrl_regs(2).first_line = '1' and ctrl_regs(2).first_in_line = '1') then
-          code_word     <= (code_word'high downto D => '0') & residual_regs(2);
+          code_word     <= residual_regs(2) & (UMAX-1 downto 0 => '0');
           code_num_bits <= D;
+        elsif (u_z >= UMAX) then
+          code_word     <= (UMAX-1 downto 0 => '0') & residual_regs(2);
+          code_num_bits <= UMAX + D;
         else
-          for i in 0 to D - 2 loop
-            if (k_z = i) then
-              u_z := to_integer(unsigned(residual_regs(2))) / 2**i;
-              if (u_z < UMAX) then
-                code_word     <= (code_word'high downto i+1 => '0') & '1' & residual_regs(2)(i-1 downto 0);
-                code_num_bits <= u_z + i + 1;
-              else
-                code_word     <= (code_word'high downto D => '0') & residual_regs(2);
-                code_num_bits <= UMAX + D;
-              end if;
+          for i in 0 to UMAX - 1 loop
+            if (u_z = i) then
+              code_word     <= (i-1 downto 0 => '0') & '1' & k_shifted_residual & (UMAX - i - 2 downto 0 => '0');
+              code_num_bits <= i + 1 + k_z;
             end if;
           end loop;
         end if;

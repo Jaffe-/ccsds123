@@ -29,7 +29,7 @@ end packer;
 architecture rtl of packer is
   constant REG_SIZE : integer := BUS_WIDTH + MAX_IN_WIDTH - 1;
 
-  type data_arr_t is array (0 to 1) of std_logic_vector(BUS_WIDTH - 1 downto 0);
+  type data_arr_t is array (0 to 1) of std_logic_vector(0 to BUS_WIDTH - 1);
   signal data_regs   : data_arr_t;
   signal current_reg : integer range 0 to 1;
   signal prev_reg    : integer range 0 to 1;
@@ -39,7 +39,7 @@ architecture rtl of packer is
 begin
 
   process (clk)
-    type data_arr_t is array (0 to BUS_WIDTH - 1) of std_logic_vector(REG_SIZE-1 downto 0);
+    type data_arr_t is array (0 to BUS_WIDTH - 1) of std_logic_vector(0 to REG_SIZE-1);
     variable data_nxts : data_arr_t;
     variable next_reg  : integer range 0 to 1;
   begin
@@ -52,12 +52,12 @@ begin
         if (in_valid = '1') then
           for i in 0 to BUS_WIDTH - 1 loop
             data_nxts(i)                                := (others => '0');
-            data_nxts(i)(i + MAX_IN_WIDTH - 1 downto 0) := in_data & data_regs(current_reg)(i-1 downto 0);
+            data_nxts(i)(0 to i + MAX_IN_WIDTH - 1) := data_regs(current_reg)(0 to i - 1) & in_data;
           end loop;
 
           next_reg               := (current_reg + 1) mod 2;
-          data_regs(current_reg) <= data_nxts(ptr_arr(current_reg))(BUS_WIDTH-1 downto 0);
-          data_regs(next_reg)    <= (2*BUS_WIDTH-1 downto REG_SIZE => '0') & data_nxts(ptr_arr(current_reg))(REG_SIZE-1 downto BUS_WIDTH);
+          data_regs(current_reg) <= data_nxts(ptr_arr(current_reg))(0 to BUS_WIDTH-1);
+          data_regs(next_reg)    <= data_nxts(ptr_arr(current_reg))(BUS_WIDTH to REG_SIZE - 1) & (2*BUS_WIDTH-1 downto REG_SIZE => '0');
 
           if (in_last = '1' or ptr_arr(current_reg) + in_num_bits >= BUS_WIDTH) then
             out_valid            <= '1';
