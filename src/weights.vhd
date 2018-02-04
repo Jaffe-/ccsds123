@@ -48,11 +48,11 @@ begin
       end if;
       if (rd = '1') then
         delay_stages(0) <= weights(rd_z);
-        if (DELAY > 0) then
-          for i in 1 to DELAY-1 loop
-            delay_stages(i) <= delay_stages(i-1);
-          end loop;
-        end if;
+      end if;
+      if (DELAY > 0) then
+        for i in 1 to DELAY-1 loop
+          delay_stages(i) <= delay_stages(i-1);
+        end loop;
       end if;
     end if;
   end process;
