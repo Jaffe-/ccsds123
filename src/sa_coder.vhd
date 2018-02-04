@@ -38,14 +38,14 @@ architecture rtl of sa_encoder is
   type z_arr_t is array (0 to 1) of integer range 0 to NZ-1;
   signal z_regs : z_arr_t;
 
-  type residual_arr_t is array (0 to 2) of std_logic_vector(D-1 downto 0);
+  type residual_arr_t is array (0 to 3) of std_logic_vector(D-1 downto 0);
   signal residual_regs      : residual_arr_t;
   signal k_shifted_residual : std_logic_vector(D-1 downto 0);
 
-  type ctrl_arr_t is array (0 to 3) of ctrl_t;
+  type ctrl_arr_t is array (0 to 4) of ctrl_t;
   signal ctrl_regs : ctrl_arr_t;
 
-  signal valid_regs : std_logic_vector(3 downto 0);
+  signal valid_regs : std_logic_vector(4 downto 0);
 
   signal rhs      : integer range 0 to 2**(D+COUNTER_SIZE+1)-1;
   signal rhs_part : integer range 0 to 2**COUNTER_SIZE-1;
@@ -54,6 +54,9 @@ architecture rtl of sa_encoder is
   signal u_z           : integer range 0 to 2**D-1;
   signal code_word     : std_logic_vector(UMAX + D - 1 downto 0);
   signal code_num_bits : integer range 0 to UMAX + D;
+
+  type code_word_cases_t is array (0 to D - 2) of boolean;
+  signal code_word_cases : code_word_cases_t;
 
   subtype accumulator_t is integer range 0 to 2**(D+COUNTER_SIZE)-1;
   signal accumulator_rd_data : accumulator_t;
@@ -111,6 +114,10 @@ begin
 
   -- Pipeline
   process (clk)
+    type code_word_arr_t is array(0 to UMAX - 1) of std_logic_vector(UMAX + D - 1 downto 0);
+    type code_num_bits_arr_t is array(0 to UMAX - 1) of integer range 0 to UMAX + D;
+    variable code_word_arr     : code_word_arr_t;
+    variable code_num_bits_arr : code_num_bits_arr_t;
   begin
     if (rising_edge(clk)) then
       if (aresetn = '0') then
@@ -124,6 +131,7 @@ begin
         accumulator_wr      <= '0';
         accumulator_wr_data <= 0;
         accumulator_wr_z    <= 0;
+        code_word_cases     <= (others => false);
       else
         --------------------------------------------------------------------------------
         -- Stage 1 - Compute floor(49/2^7 * counter(t))
@@ -162,50 +170,63 @@ begin
         residual_regs(1) <= residual_regs(0);
 
         --------------------------------------------------------------------------------
-        -- Stage 3 - Compute k_z(t)
+        -- Stage 3 - Calculate the different inequalities used for selecting
+        -- k_z and u_z
         --------------------------------------------------------------------------------
-        if (2 * counter_regs(1) > rhs) then
-          k_z <= 0;
-        else
-          k_z <= 0;
-          for i in 1 to D - 2 loop
-            if (counter_regs(1) * 2**i <= rhs) then
-              k_z                <= i;
-              u_z                <= to_integer(unsigned(residual_regs(1))) / 2**i;
-              k_shifted_residual <= residual_regs(1)(i-1 downto 0) & (D-i-1 downto 0 => '0');
-            end if;
-          end loop;
-        end if;
+        code_word_cases(0) <= 2 * counter_regs(1) > rhs;
+        for i in 1 to D - 2 loop
+          code_word_cases(i) <= counter_regs(1) * 2**i <= rhs;
+        end loop;
 
         residual_regs(2) <= residual_regs(1);
         valid_regs(2)    <= valid_regs(1);
         ctrl_regs(2)     <= ctrl_regs(1);
 
         --------------------------------------------------------------------------------
-        -- Stage 4 - Compute code word
+        -- Stage 4 - Calculate u_z, k_z and the k_z LSBs of the residual shifted to
+        -- occupy the most significant bits
         --------------------------------------------------------------------------------
-        if (ctrl_regs(2).first_line = '1' and ctrl_regs(2).first_in_line = '1') then
-          code_word     <= residual_regs(2) & (UMAX-1 downto 0 => '0');
+        for i in 0 to D - 2 loop
+          if (code_word_cases(i)) then
+            if (i = 0) then
+              k_z <= 0;
+            else
+              k_z                <= i;
+              u_z                <= to_integer(unsigned(residual_regs(2))) / 2**i;
+              k_shifted_residual <= residual_regs(2)(i-1 downto 0) & (D-i-1 downto 0 => '0');
+            end if;
+          end if;
+        end loop;
+
+        residual_regs(3) <= residual_regs(2);
+        valid_regs(3)    <= valid_regs(2);
+        ctrl_regs(3)     <= ctrl_regs(2);
+
+        --------------------------------------------------------------------------------
+        -- Stage 5 - Compute code word
+        --------------------------------------------------------------------------------
+        if (ctrl_regs(3).first_line = '1' and ctrl_regs(3).first_in_line = '1') then
+          code_word     <= residual_regs(3) & (UMAX-1 downto 0 => '0');
           code_num_bits <= D;
         elsif (u_z >= UMAX) then
-          code_word     <= (UMAX-1 downto 0 => '0') & residual_regs(2);
+          code_word     <= (UMAX-1 downto 0 => '0') & residual_regs(3);
           code_num_bits <= UMAX + D;
         else
           for i in 0 to UMAX - 1 loop
-            if (u_z = i) then
-              code_word     <= (i-1 downto 0 => '0') & '1' & k_shifted_residual & (UMAX - i - 2 downto 0 => '0');
-              code_num_bits <= i + 1 + k_z;
-            end if;
+            code_word_arr(i)     := (i-1 downto 0 => '0') & '1' & k_shifted_residual & (UMAX - i - 2 downto 0 => '0');
+            code_num_bits_arr(i) := i + 1 + k_z;
           end loop;
+          code_word     <= code_word_arr(u_z);
+          code_num_bits <= code_num_bits_arr(u_z);
         end if;
-        valid_regs(3) <= valid_regs(2);
-        ctrl_regs(3)  <= ctrl_regs(2);
+        valid_regs(4) <= valid_regs(3);
+        ctrl_regs(4)  <= ctrl_regs(3);
       end if;
     end if;
   end process;
 
-  out_valid    <= valid_regs(3);
-  out_last     <= ctrl_regs(3).last;
+  out_valid    <= valid_regs(4);
+  out_last     <= ctrl_regs(4).last;
   out_data     <= code_word;
   out_num_bits <= code_num_bits;
 end rtl;
