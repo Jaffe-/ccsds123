@@ -26,8 +26,7 @@ end weight_store;
 
 architecture rtl of weight_store is
   type weight_vec_t is array (0 to NZ-1) of signed(CZ*(OMEGA+3)-1 downto 0);
-  signal weights         : weight_vec_t;
-  signal weight_from_ram : signed(CZ*(OMEGA+3)-1 downto 0);
+  signal weights         : weight_vec_t := (others => (others => '0'));
 
   type delay_stages_t is array (0 to DELAY-1) of signed(CZ*(OMEGA+3)-1 downto 0);
   signal delay_stages : delay_stages_t;
@@ -45,7 +44,7 @@ begin
   begin
     if (rising_edge(clk)) then
       if (aresetn = '0') then
-        delay_stages(0) <= (others => '0');
+        delay_stages <= (others => (others => '0'));
       end if;
       if (rd = '1') then
         delay_stages(0) <= weights(rd_z);
