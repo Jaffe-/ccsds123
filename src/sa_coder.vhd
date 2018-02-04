@@ -62,7 +62,7 @@ architecture rtl of sa_encoder is
   signal accumulator_wr_data : accumulator_t;
 
   type accumulator_arr_t is array (0 to NZ-1) of accumulator_t;
-  signal accumulators : accumulator_arr_t;
+  signal accumulators : accumulator_arr_t := (others => 0);
 begin
 
   -- RAM write port
