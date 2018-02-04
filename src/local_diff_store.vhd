@@ -32,10 +32,10 @@ begin
       else
         if (wr = '1') then
           local_diffs_reg(D+2 downto 0) <= wr_local_diff;
-          if (z < NZ-1) then
-            local_diffs_reg(local_diffs_reg'high downto D+3) <= local_diffs_reg(local_diffs_reg'high-(D+3) downto 0);
-          else
+          if (z = NZ-1) then
             local_diffs_reg(local_diffs_reg'high downto 0) <= (others => '0');
+          else
+            local_diffs_reg(local_diffs_reg'high downto D+3) <= local_diffs_reg(local_diffs_reg'high-(D+3) downto 0);
           end if;
         end if;
       end if;

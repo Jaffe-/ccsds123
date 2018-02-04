@@ -78,7 +78,7 @@ begin
         if (to_integer(abs_residual) > theta) then
           out_delta <= abs_residual + theta;
         elsif ((in_scaled_pred_s_odd = '0' and to_integer(residual) >= 0 and to_integer(residual) <= theta)
-               or (in_scaled_pred_s_odd = '1' and to_integer(residual)                            <= 0 and -to_integer(residual) <= theta)) then
+               or (in_scaled_pred_s_odd = '1' and to_integer(residual) <= 0 and -to_integer(residual) <= theta)) then
           out_delta <= shift_left(abs_residual, 1);
         else
           out_delta <= shift_left(abs_residual, 1) - 1;
