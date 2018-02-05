@@ -187,13 +187,9 @@ begin
         --------------------------------------------------------------------------------
         for i in 0 to D - 2 loop
           if (code_word_cases(i)) then
-            if (i = 0) then
-              k_z <= 0;
-            else
-              k_z                <= i;
-              u_z                <= to_integer(unsigned(residual_regs(2))) / 2**i;
-              k_shifted_residual <= residual_regs(2)(i-1 downto 0) & (D-i-1 downto 0 => '0');
-            end if;
+            k_z                <= i;
+            u_z                <= to_integer(unsigned(residual_regs(2))) / 2**i;
+            k_shifted_residual <= residual_regs(2)(i-1 downto 0) & (D-i-1 downto 0 => '0');
           end if;
         end loop;
 
