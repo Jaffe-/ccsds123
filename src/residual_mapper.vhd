@@ -27,7 +27,7 @@ entity residual_mapper is
 end residual_mapper;
 
 architecture rtl of residual_mapper is
-  signal residual             : signed(D-1 downto 0);
+  signal residual             : signed(D + 1 downto 0);
   signal theta                : integer range -2**D to 2**D-1;
   signal valid_reg            : std_logic;
   signal in_scaled_pred_s_odd : std_logic;
@@ -47,7 +47,7 @@ architecture rtl of residual_mapper is
 begin
   process (clk)
     variable pred_s       : signed(D-1 downto 0);
-    variable abs_residual : unsigned(D-1 downto 0);
+    variable abs_residual : unsigned(D+1 downto 0);
   begin
     if (rising_edge(clk)) then
       if (aresetn = '0') then
@@ -63,7 +63,7 @@ begin
         --------------------------------------------------------------------------------
         pred_s := resize(shift_right(in_scaled_pred_s, 1), D);
 
-        residual             <= in_s - pred_s;
+        residual             <= resize(in_s, D+2) - pred_s;
         theta                <= get_min(to_integer(pred_s) + 2**(D-1), (2**(D-1)-1) - to_integer(pred_s));
         in_scaled_pred_s_odd <= in_scaled_pred_s(0);
 
@@ -76,12 +76,12 @@ begin
         --------------------------------------------------------------------------------
         abs_residual := unsigned(abs(residual));
         if (to_integer(abs_residual) > theta) then
-          out_delta <= abs_residual + theta;
+          out_delta <= resize(abs_residual + theta, D);
         elsif ((in_scaled_pred_s_odd = '0' and to_integer(residual) >= 0 and to_integer(residual) <= theta)
                or (in_scaled_pred_s_odd = '1' and to_integer(residual) <= 0 and -to_integer(residual) <= theta)) then
-          out_delta <= shift_left(abs_residual, 1);
+          out_delta <= resize(shift_left(abs_residual, 1), D);
         else
-          out_delta <= shift_left(abs_residual, 1) - 1;
+          out_delta <= resize(shift_left(abs_residual, 1) - 1, D);
         end if;
 
         out_valid <= valid_reg;
