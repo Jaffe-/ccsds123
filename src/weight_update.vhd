@@ -35,9 +35,6 @@ entity weight_update is
 end weight_update;
 
 architecture rtl of weight_update is
-  constant TINC_LOG : integer := 5;
-
-  signal scale_exponent : integer range V_MIN to V_MAX;
   signal sgn_error      : std_logic;
 
   type diff_vec_t is array (0 to CZ-1) of signed(D+2 downto 0);
@@ -92,7 +89,6 @@ begin
   begin
     if (rising_edge(clk)) then
       if (aresetn = '0') then
-        scale_exponent <= 0;
         sgn_error      <= '0';
         diff_regs      <= (others => (others => '0'));
         weight_regs    <= (others => (others => (others => '0')));

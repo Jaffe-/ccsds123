@@ -77,8 +77,8 @@ begin
         abs_residual := unsigned(abs(residual));
         if (to_integer(abs_residual) > theta) then
           out_delta <= resize(abs_residual + theta, D);
-        elsif ((in_scaled_pred_s_odd = '0' and to_integer(residual) >= 0 and to_integer(residual) <= theta)
-               or (in_scaled_pred_s_odd = '1' and to_integer(residual) <= 0 and -to_integer(residual) <= theta)) then
+        elsif ((in_scaled_pred_s_odd = '0' and to_integer(residual) >= 0)
+               or (in_scaled_pred_s_odd = '1' and to_integer(residual) <= 0)) then
           out_delta <= resize(shift_left(abs_residual, 1), D);
         else
           out_delta <= resize(shift_left(abs_residual, 1) - 1, D);
