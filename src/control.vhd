@@ -16,10 +16,13 @@ use work.common.all;
 
 entity control is
   generic (
-    NX : integer := 500;
-    NY : integer := 500;
-    NZ : integer := 100;
-    D  : integer := 12
+    V_MIN    : integer;
+    V_MAX    : integer;
+    TINC_LOG : integer;
+    NX       : integer := 500;
+    NY       : integer := 500;
+    NZ       : integer := 100;
+    D        : integer := 12
     );
 
   port (
@@ -29,8 +32,7 @@ entity control is
     tick : in std_logic;
 
     out_ctrl : out ctrl_t;
-    out_z    : out integer range 0 to NZ - 1;
-    out_t    : out integer range 0 to NX*NY - 1
+    out_z    : out integer range 0 to NZ - 1
     );
 
 end control;
@@ -76,10 +78,12 @@ begin
 
   -- Create ctrl signals
   process (x, y, z, t)
-    variable first_line : std_logic;
-    variable first_pix  : std_logic;
-    variable last_pix   : std_logic;
-    variable last       : std_logic;
+    variable first_line     : std_logic;
+    variable first_pix      : std_logic;
+    variable last_pix       : std_logic;
+    variable last           : std_logic;
+    variable scale_exponent : integer range -6 to 9;
+    variable floored        : integer range V_MIN-1 to V_MAX+1;
   begin
     first_line := '0';
     first_pix  := '0';
@@ -98,12 +102,15 @@ begin
       end if;
     end if;
 
-    out_ctrl <= (first_line    => first_line,
-                 first_in_line => first_pix,
-                 last_in_line  => last_pix,
-                 last          => last);
+    floored        := V_MIN + (t - NX) / 2**TINC_LOG;
+    scale_exponent := clip(floored, V_MIN, V_MAX);
+
+    out_ctrl <= (first_line     => first_line,
+                 first_in_line  => first_pix,
+                 last_in_line   => last_pix,
+                 last           => last,
+                 scale_exponent => scale_exponent);
     out_z <= z;
-    out_t <= t;
   end process;
 end rtl;
 

@@ -11,6 +11,9 @@ entity ccsds123_top is
     D             : integer := 16;
     P             : integer := 1;
     R             : integer := 64;
+    TINC_LOG      : integer := 4;
+    V_MIN         : integer := -6;
+    V_MAX         : integer := 9;
     UMAX          : integer := 9;
     KZ_PRIME      : integer := 8;
     COUNTER_SIZE  : integer := 8;
@@ -39,7 +42,6 @@ architecture rtl of ccsds123_top is
   signal in_handshake : std_logic;
   signal in_ready     : std_logic;
 
-  subtype t_type is integer range 0 to NX*NY-1;
   subtype z_type is integer range 0 to NZ-1;
   subtype sample_type is signed(D-1 downto 0);
   subtype locsum_type is signed(D+2 downto 0);
@@ -48,7 +50,6 @@ architecture rtl of ccsds123_top is
 
   signal from_ctrl_ctrl : ctrl_t;
   signal from_ctrl_z    : integer range 0 to NZ-1;
-  signal from_ctrl_t    : integer range 0 to NX*NY-1;
 
   signal s_ne : std_logic_vector(D-1 downto 0);
   signal s_n  : std_logic_vector(D-1 downto 0);
@@ -58,7 +59,6 @@ architecture rtl of ccsds123_top is
   signal from_local_diff_ctrl   : ctrl_t;
   signal from_local_diff_valid  : std_logic;
   signal from_local_diff_z      : z_type;
-  signal from_local_diff_t      : t_type;
   signal from_local_diff_s      : sample_type;
   signal from_local_diff_locsum : locsum_type;
   signal d_c                    : signed(D+2 downto 0);
@@ -74,7 +74,6 @@ architecture rtl of ccsds123_top is
   signal from_dot_s       : sample_type;
   signal from_dot_locsum  : locsum_type;
   signal from_dot_z       : z_type;
-  signal from_dot_t       : t_type;
   signal from_dot_weights : weights_type;
   signal from_dot_diffs   : diffs_type;
 
@@ -83,7 +82,6 @@ architecture rtl of ccsds123_top is
   signal from_pred_ctrl    : ctrl_t;
   signal from_pred_s       : sample_type;
   signal from_pred_z       : z_type;
-  signal from_pred_t       : t_type;
   signal from_pred_weights : weights_type;
   signal from_pred_diffs   : diffs_type;
 
@@ -107,10 +105,13 @@ begin
 
   i_control : entity work.control
     generic map (
-      NX => NX,
-      NY => NY,
-      NZ => NZ,
-      D  => D)
+      V_MIN    => V_MIN,
+      V_MAX    => V_MAX,
+      TINC_LOG => TINC_LOG,
+      NX       => NX,
+      NY       => NY,
+      NZ       => NZ,
+      D        => D)
     port map (
       clk     => clk,
       aresetn => aresetn,
@@ -118,8 +119,7 @@ begin
       tick => in_handshake,
 
       out_ctrl => from_ctrl_ctrl,
-      out_z    => from_ctrl_z,
-      out_t    => from_ctrl_t);
+      out_z    => from_ctrl_z);
 
   i_sample_store : entity work.sample_store
     generic map (
@@ -157,7 +157,6 @@ begin
       s_w      => signed(s_w),
       in_valid => in_handshake,
       in_ctrl  => from_ctrl_ctrl,
-      in_t     => from_ctrl_t,
       in_z     => from_ctrl_z,
 
       local_sum => from_local_diff_locsum,
@@ -167,7 +166,6 @@ begin
       d_nw      => local_diffs((D+3)*(P+1)-1 downto (D+3)*P),
       out_valid => from_local_diff_valid,
       out_ctrl  => from_local_diff_ctrl,
-      out_t     => from_local_diff_t,
       out_z     => from_local_diff_z,
       out_s     => from_local_diff_s);
 
@@ -229,7 +227,6 @@ begin
       in_locsum  => from_local_diff_locsum,
       in_ctrl    => from_local_diff_ctrl,
       in_z       => from_local_diff_z,
-      in_t       => from_local_diff_t,
       in_s       => from_local_diff_s,
       in_weights => weights,
       in_diffs   => local_diffs,
@@ -237,7 +234,6 @@ begin
       out_locsum  => from_dot_locsum,
       out_ctrl    => from_dot_ctrl,
       out_z       => from_dot_z,
-      out_t       => from_dot_t,
       out_s       => from_dot_s,
       out_weights => from_dot_weights,
       out_diffs   => from_dot_diffs);
@@ -261,7 +257,6 @@ begin
 
       in_locsum  => from_dot_locsum,
       in_z       => from_dot_z,
-      in_t       => from_dot_t,
       in_s       => from_dot_s,
       in_ctrl    => from_dot_ctrl,
       in_weights => from_dot_weights,
@@ -270,7 +265,6 @@ begin
       out_valid   => from_pred_valid,
       out_pred_s  => from_pred_pred_s,
       out_z       => from_pred_z,
-      out_t       => from_pred_t,
       out_s       => from_pred_s,
       out_ctrl    => from_pred_ctrl,
       out_weights => from_pred_weights,
@@ -290,7 +284,6 @@ begin
       aresetn => aresetn,
 
       in_ctrl    => from_pred_ctrl,
-      in_t       => from_pred_t,
       in_z       => from_pred_z,
       in_s       => from_pred_s,
       in_pred_s  => from_pred_pred_s,

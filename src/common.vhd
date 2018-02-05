@@ -17,10 +17,11 @@ package common is
   --constant COL_ORIENTED : boolean := false;
 
   type ctrl_t is record
-    first_line    : std_logic;
-    first_in_line : std_logic;
-    last_in_line  : std_logic;
-    last          : std_logic;
+    first_line     : std_logic;
+    first_in_line  : std_logic;
+    last_in_line   : std_logic;
+    last           : std_logic;
+    scale_exponent : integer range -6 to 9;
   end record ctrl_t;
 
   function clip(val     : integer; val_min : integer; val_max : integer) return integer;

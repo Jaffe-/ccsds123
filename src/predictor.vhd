@@ -24,7 +24,6 @@ entity predictor is
     in_locsum : in signed(D+2 downto 0);
 
     in_z       : in integer range 0 to NZ-1;
-    in_t       : in integer range 0 to NX*NY-1;
     in_s       : in signed(D-1 downto 0);
     in_weights : in signed(CZ*(OMEGA+3)-1 downto 0);
     in_diffs   : in signed(CZ*(D+3)-1 downto 0);
@@ -34,7 +33,6 @@ entity predictor is
 
     out_ctrl    : out ctrl_t;
     out_z       : out integer range 0 to NZ-1;
-    out_t       : out integer range 0 to NX*NY-1;
     out_s       : out signed(D-1 downto 0);
     out_weights : out signed(CZ*(OMEGA+3)-1 downto 0);
     out_diffs   : out signed(CZ*(D+3)-1 downto 0)
@@ -50,7 +48,6 @@ architecture rtl of predictor is
   type side_data_t is record
     ctrl    : ctrl_t;
     z       : integer range 0 to NZ-1;
-    t       : integer range 0 to NX*NY-1;
     s       : signed(D-1 downto 0);
     weights : signed(CZ*(OMEGA+3)-1 downto 0);
     diffs   : signed(CZ*(D+3)-1 downto 0);
@@ -77,7 +74,6 @@ begin
         side_data_regs(0) <= (
           ctrl    => in_ctrl,
           z       => in_z,
-          t       => in_t,
           s       => in_s,
           weights => in_weights,
           diffs   => in_diffs,
@@ -111,7 +107,6 @@ begin
 
   out_ctrl    <= side_data_regs(1).ctrl;
   out_z       <= side_data_regs(1).z;
-  out_t       <= side_data_regs(1).t;
   out_s       <= side_data_regs(1).s;
   out_weights <= side_data_regs(1).weights;
   out_diffs   <= side_data_regs(1).diffs;

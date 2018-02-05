@@ -31,7 +31,6 @@ entity local_diff is
 
     in_valid : in std_logic;
     in_ctrl  : in ctrl_t;
-    in_t     : in integer range 0 to NX*NY-1;
     in_z     : in integer range 0 to NZ-1;
 
     local_sum : out signed(D+2 downto 0);
@@ -42,7 +41,6 @@ entity local_diff is
 
     out_valid : out std_logic;
     out_ctrl  : out ctrl_t;
-    out_t     : out integer range 0 to NX*NY-1;
     out_z     : out integer range 0 to NZ-1;
     out_s     : out signed(D-1 downto 0)
     );
@@ -58,7 +56,6 @@ architecture rtl of local_diff is
     valid : std_logic;
     ctrl  : ctrl_t;
     z     : integer range 0 to NZ-1;
-    t     : integer range 0 to NX*NY-1;
     s     : signed(D-1 downto 0);
   end record side_data_t;
 
@@ -90,9 +87,8 @@ begin
         d_nw          <= to_signed(0, D+3);
         side_data_regs <= (others => (
           valid                   => '0',
-          ctrl                    => ('0', '0', '0', '0'),
+          ctrl                    => ('0', '0', '0', '0', 0),
           z                       => 0,
-          t                       => 0,
           s                       => (others => '0')));
         s_cur_regs <= (others => 0);
         s_n_regs   <= (others => 0);
@@ -134,7 +130,6 @@ begin
           valid => in_valid,
           ctrl  => in_ctrl,
           z     => in_z,
-          t     => in_t,
           s     => s_cur);
 
         s_cur_regs(0) <= s_cur_i;
@@ -186,7 +181,6 @@ begin
 
         out_valid <= side_data_regs(1).valid;
         out_ctrl  <= side_data_regs(1).ctrl;
-        out_t     <= side_data_regs(1).t;
         out_z     <= side_data_regs(1).z;
         out_s     <= side_data_regs(1).s;
       end if;

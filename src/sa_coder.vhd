@@ -125,7 +125,7 @@ begin
         rhs_part            <= 0;
         counter_regs        <= (others => 0);
         z_regs              <= (others => 0);
-        ctrl_regs           <= (others => ('0', '0', '0', '0'));
+        ctrl_regs           <= (others => ('0', '0', '0', '0', 0));
         residual_regs       <= (others => (others => '0'));
         valid_regs          <= (others => '0');
         accumulator_wr      <= '0';
@@ -165,7 +165,6 @@ begin
 
         counter_regs(1)  <= counter_regs(0);
         valid_regs(1)    <= valid_regs(0);
-        z_regs(1)        <= z_regs(0);
         ctrl_regs(1)     <= ctrl_regs(0);
         residual_regs(1) <= residual_regs(0);
 

@@ -21,7 +21,6 @@ entity weight_update is
     aresetn : in std_logic;
 
     in_ctrl    : in ctrl_t;
-    in_t       : in integer range 0 to NX*NY-1;
     in_z       : in integer range 0 to NZ-1;
     in_s       : in signed(D-1 downto 0);
     in_pred_s  : in signed(D downto 0);
@@ -99,20 +98,15 @@ begin
         weight_regs    <= (others => (others => (others => '0')));
         valid_regs     <= (others => '0');
         z_regs         <= (others => 0);
-        ctrl_regs      <= (others => ('0', '0', '0', '0'));
+        ctrl_regs      <= (others => ('0', '0', '0', '0', 0));
       else
         --------------------------------------------------------------------------------
         -- Stage 1 - calculate scaling exponent and prediction error
         --------------------------------------------------------------------------------
-        weight_regs(0) <= weight_vec;
-        valid_regs(0)  <= in_valid;
-        z_regs(0)      <= in_z;
-        ctrl_regs(0)   <= in_ctrl;
-
-        numerator      := to_signed(in_t - NX, numerator'length);
---        increment      := (in_t - NX) / 2**TINC_LOG;
-        increment      := to_integer(numerator(numerator'high downto TINC_LOG));
-        scale_exponent <= clip(V_MIN + increment, V_MIN, V_MAX) + D - OMEGA;
+        weight_regs(0)     <= weight_vec;
+        valid_regs(0)      <= in_valid;
+        z_regs(0)          <= in_z;
+        ctrl_regs(0)       <= in_ctrl;
 
         -- Compute sgn(e_z(t)) * U(t) for each component
         if (2*to_integer(in_s) >= to_integer(in_pred_s)) then
@@ -136,7 +130,7 @@ begin
 
         for comp in 0 to CZ-1 loop
           for i in V_MIN + D - OMEGA to V_MAX + D - OMEGA loop
-            if (scale_exponent = i) then
+            if (ctrl_regs(0).scale_exponent = i - (D - OMEGA)) then
               -- p(t) is positive, meaning that the exponent -p(t) is NEGATIVE,
               -- and shifting is to the right
               if (i > 0) then
