@@ -85,15 +85,19 @@ module top_tb;
       s_axis_tvalid <= 1'b0;
    end;
 
+   integer j;
    initial begin
-      f_out = $fopen("output.txt","w");
+      f_out = $fopen("output.txt","wb");
       while (res_last !== 1'b1) begin
          @(posedge clk);
          if (res_valid) begin
-            $fwrite(f_out, "%x\n", res);
+            for (j = 0; j < BUS_WIDTH/8; j = j + 1) begin
+               $fwrite(f_out, "%c", res[j*8+:8]);
+            end
          end
       end
       $display("Done.\n");
       $fclose(f_out);
+      $finish;
    end;
 endmodule // top_tb
