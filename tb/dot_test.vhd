@@ -2,6 +2,7 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.all;
 use ieee.math_real.all;
+use work.common.all;
 
 entity dot_tb is
 end dot_tb;
@@ -46,7 +47,21 @@ begin
       b       => b,
       b_valid => b_valid,
       s       => s,
-      s_valid => s_valid);
+      s_valid => s_valid,
+
+      in_locsum  => (others => '0'),
+      in_ctrl    => ('0', '0', '0', '0', 0),
+      in_z       => 0,
+      in_s       => (others => '0'),
+      in_weights => (others => '0'),
+      in_diffs   => (others => '0'),
+
+      out_locsum  => open,
+      out_ctrl    => open,
+      out_z       => open,
+      out_s       => open,
+      out_weights => open,
+      out_diffs   => open);
 
   process
   begin
