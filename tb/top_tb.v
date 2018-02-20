@@ -20,7 +20,7 @@ module top_tb;
 
    parameter PERIOD = 10;
 
-   parameter BUBBLES = 0;
+   parameter BUBBLES = 1;
 
    reg clk, aresetn;
    reg [D-1:0] s_axis_tdata;
@@ -55,10 +55,11 @@ module top_tb;
       .out_valid(res_valid),
       .out_last(res_last));
 
-   integer          i, wr_i;
-   integer          f_out;
-
    always #(PERIOD/2) clk = ~clk;
+
+   integer          i, wr_i;
+   integer          f_in, f_out;
+   reg[200*8:0]    in_filename;
 
    initial begin
       clk <= 1'b0;
@@ -69,7 +70,17 @@ module top_tb;
       repeat(4) @(posedge clk);
       aresetn <= 1'b1;
 
-      for (i = 0; i < NX*NY*NZ; i = i + 1) begin
+      if (!$value$plusargs("IN_FILENAME=%s", in_filename)) begin
+         in_filename = "test.bin";
+      end
+      f_in = $fopen(in_filename, "rb");
+
+      if (f_in == 0) begin
+         $display("Failed to open input file %s", in_filename);
+         $finish;
+      end
+
+      while (!$feof(f_in)) begin
          if (BUBBLES) begin
             while ($urandom % 3 != 0) begin
                s_axis_tdata <= 0;
@@ -77,17 +88,24 @@ module top_tb;
                @(posedge clk);
             end
          end
-         s_axis_tdata <= i;
+         s_axis_tdata[D/2-1:0] <= $fgetc(f_in);
+         s_axis_tdata[D-1:D/2] <= $fgetc(f_in);
          s_axis_tvalid <= 1'b1;
          @(posedge clk);
       end;
+
+      $fclose(f_in);
 
       s_axis_tvalid <= 1'b0;
    end;
 
    integer j;
+   reg [200*8:0] out_filename;
    initial begin
-      f_out = $fopen("output.txt","wb");
+      if (!$value$plusargs("OUT_FILENAME=%s", out_filename)) begin
+         out_filename = "out.bin";
+      end
+      f_out = $fopen(out_filename, "wb");
       while (res_last !== 1'b1) begin
          @(posedge clk);
          if (res_valid) begin
