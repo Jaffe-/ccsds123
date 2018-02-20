@@ -1,22 +1,8 @@
 `timescale 1ns/1ps
 
 module top_tb;
-   parameter NX = 4;
-   parameter NY = 4;
-   parameter NZ = 16;
-   parameter D = 16;
-   parameter P = 4;
-   parameter R = 32;
-   parameter CZ = 7;
-   parameter OMEGA = 10;
-
-   // Encoder options
-   parameter KZ_PRIME = 5;
-   parameter COUNTER_SIZE = 6;
-   parameter INITIAL_COUNT = 1;
-   parameter UMAX = 16;
-
-   parameter BUS_WIDTH = 32;
+`include "comp_params.v"
+   parameter BUS_WIDTH = 64;
 
    parameter PERIOD = 10;
 
@@ -40,6 +26,9 @@ module top_tb;
        .R(R),
        .CZ(CZ),
        .OMEGA(OMEGA),
+       .TINC_LOG(TINC_LOG),
+       .V_MIN(V_MIN),
+       .V_MAX(V_MAX),
        .UMAX(UMAX),
        .COUNTER_SIZE(COUNTER_SIZE),
        .INITIAL_COUNT(INITIAL_COUNT),
@@ -109,7 +98,7 @@ module top_tb;
       while (res_last !== 1'b1) begin
          @(posedge clk);
          if (res_valid) begin
-            for (j = 0; j < BUS_WIDTH/8; j = j + 1) begin
+            for (j = BUS_WIDTH/8-1; j >= 0; j = j - 1) begin
                $fwrite(f_out, "%c", res[j*8+:8]);
             end
          end
