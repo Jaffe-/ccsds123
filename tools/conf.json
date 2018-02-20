@@ -1,0 +1,22 @@
+{"parameters": {"D": 16,
+                "out_word_size": 4,
+                "P": 3,
+                "R": 64,
+                "OMEGA": 19,
+                "TINC_LOG": 6,
+                "V_MIN": -1,
+                "V_MAX": 3,
+                "UMAX": 18,
+                "COUNTER_SIZE": 6,
+                "INITIAL_COUNT": 1,
+                "K": 3},
+
+ "images": [
+     {"filename": "/mnt/bigdisk/HSIs/PCAd/AVIRIS_L2_1.BIP_M_PCA10.bsq",
+      "order": "BSQ",
+      "endianness": "little",
+      "NX": 614,
+      "NY": 512,
+      "NZ": 10}
+ ]
+}
