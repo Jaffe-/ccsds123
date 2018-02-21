@@ -80,11 +80,13 @@ begin
   begin
     if (rising_edge(clk)) then
       if (aresetn = '0') then
-        local_sum_reg <= 0;
-        d_c           <= to_signed(0, D+3);
-        d_n           <= to_signed(0, D+3);
-        d_w           <= to_signed(0, D+3);
-        d_nw          <= to_signed(0, D+3);
+        local_sum_reg   <= 0;
+        local_sum_term1 <= 0;
+        local_sum_term2 <= 0;
+        d_c             <= to_signed(0, D+3);
+        d_n             <= to_signed(0, D+3);
+        d_w             <= to_signed(0, D+3);
+        d_nw            <= to_signed(0, D+3);
         side_data_regs <= (others => (
           valid                   => '0',
           ctrl                    => ('0', '0', '0', '0', 0),
