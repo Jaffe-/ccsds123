@@ -68,7 +68,7 @@ architecture rtl of ccsds123_top is
 
   signal local_diffs      : signed(CZ*(D+3)-1 downto 0);
   signal weights          : signed(CZ*(OMEGA+3)-1 downto 0);
-  signal pred_d_c         : signed(D+3+OMEGA+3-1 downto 0);
+  signal pred_d_c         : signed(D+3+OMEGA+3+CZ-1-1 downto 0);
   signal from_dot_valid   : std_logic;
   signal from_dot_ctrl    : ctrl_t;
   signal from_dot_s       : sample_type;

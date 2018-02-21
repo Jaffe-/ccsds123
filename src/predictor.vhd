@@ -20,7 +20,7 @@ entity predictor is
 
     in_valid  : in std_logic;
     in_ctrl   : in ctrl_t;
-    in_d_c    : in signed(D+3+OMEGA+3-1 downto 0);
+    in_d_c    : in signed(D+3+OMEGA+3+CZ-1-1 downto 0);
     in_locsum : in signed(D+2 downto 0);
 
     in_z       : in integer range 0 to NZ-1;

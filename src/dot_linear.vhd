@@ -25,7 +25,7 @@ entity dot_product is
     a_valid : in  std_logic;
     b       : in  signed(N*B_SIZE-1 downto 0);
     b_valid : in  std_logic;
-    s       : out signed(A_SIZE + B_SIZE - 1 downto 0);
+    s       : out signed(A_SIZE + B_SIZE + N - 1 - 1 downto 0);
     s_valid : out std_logic;
 
     in_locsum  : in signed(D+2 downto 0);
@@ -61,7 +61,7 @@ architecture rtl of dot_product is
 
   signal side_data_regs : side_data_arr_t;
 
-  type s_vec_t is array(0 to STAGES) of signed(A_SIZE+B_SIZE-1 downto 0);
+  type s_vec_t is array(0 to STAGES) of signed(A_SIZE+B_SIZE+N-1-1 downto 0);
   type a_arr_t is array(1 to STAGES-1, 0 to STAGES-1) of signed(A_SIZE-1 downto 0);
   type b_arr_t is array(1 to STAGES-1, 0 to STAGES-1) of signed(B_SIZE-1 downto 0);
   signal sums     : s_vec_t;
@@ -77,7 +77,7 @@ begin
   begin
     if (rising_edge(clk)) then
       if (aresetn = '0') then
-        sums           <= (others => to_signed(0, A_SIZE+B_SIZE));
+        sums           <= (others => to_signed(0, A_SIZE+B_SIZE+N-1));
         a_delays       <= (others => (others => to_signed(0, A_SIZE)));
         b_delays       <= (others => (others => to_signed(0, B_SIZE)));
         valid_regs     <= (others => '0');
@@ -91,7 +91,7 @@ begin
           locsum  => in_locsum);
         valid_regs(0) <= a_valid and b_valid;
 
-        sums(0) <= a(A_SIZE-1 downto 0) * b(B_SIZE-1 downto 0);
+        sums(0) <= resize(a(A_SIZE-1 downto 0) * b(B_SIZE-1 downto 0), A_SIZE+B_SIZE+N-1);
         for i in 1 to STAGES-1 loop
           a_delays(i, 0) <= a((i+1)*A_SIZE-1 downto i*A_SIZE);
           b_delays(i, 0) <= b((i+1)*B_SIZE-1 downto i*B_SIZE);
