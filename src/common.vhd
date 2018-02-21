@@ -25,7 +25,6 @@ package common is
   end record ctrl_t;
 
   function clip(val     : integer; val_min : integer; val_max : integer) return integer;
-  function sgn(val      : integer) return integer;
   function wrap_inc(val : integer; max : integer) return integer;
 end common;
 
@@ -40,15 +39,6 @@ package body common is
       return val;
     end if;
   end clip;
-
-  function sgn(val : integer) return integer is
-  begin
-    if (val >= 0) then
-      return 1;
-    else
-      return -1;
-    end if;
-  end sgn;
 
   function wrap_inc(val : integer; max : integer) return integer is
   begin
