@@ -57,7 +57,7 @@ begin
         if (tick = '1') then
           if (z = Nz - 1) then
             z <= 0;
-            t <= t + 1;
+            t <= wrap_inc(t, NX*NY-1);
             if (x = Nx - 1) then
               x <= 0;
               if (y = Ny - 1) then
@@ -82,8 +82,7 @@ begin
     variable first_pix      : std_logic;
     variable last_pix       : std_logic;
     variable last           : std_logic;
-    variable scale_exponent : integer range -6 to 9;
-    variable floored        : integer range V_MIN-1 to V_MAX+1;
+    variable scale_exponent : integer range V_MIN to V_MAX;
   begin
     first_line := '0';
     first_pix  := '0';
@@ -102,8 +101,17 @@ begin
       end if;
     end if;
 
-    floored        := V_MIN + (t - NX) / 2**TINC_LOG;
-    scale_exponent := clip(floored, V_MIN, V_MAX);
+    -- Perform clip(v_min + floor((t - NX)/2**TINC_LOG), {v_min, v_max})
+    --
+    -- Reformulated inequality to have only t on lhs and just constants on rhs,
+    -- which improves synthesis results
+    if (t >= 2**TINC_LOG*(V_MAX - V_MIN) + NX) then
+      scale_exponent := V_MAX;
+    elsif (t <= NX) then
+      scale_exponent := V_MIN;
+    else
+      scale_exponent := V_MIN + (t - NX) / 2**TINC_LOG;
+    end if;
 
     out_ctrl <= (first_line     => first_line,
                  first_in_line  => first_pix,
