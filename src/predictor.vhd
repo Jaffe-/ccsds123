@@ -5,14 +5,14 @@ use work.common.all;
 
 entity predictor is
   generic (
-    NX    : integer := 100;
-    NY    : integer := 100;
-    NZ    : integer := 100;
-    D     : integer := 8;
-    R     : integer := 12;
-    OMEGA : integer := 8;
-    P     : integer := 2;
-    CZ    : integer := 5
+    NX    : integer;
+    NY    : integer;
+    NZ    : integer;
+    D     : integer;
+    R     : integer;
+    OMEGA : integer;
+    P     : integer;
+    CZ    : integer
     );
   port (
     clk     : in std_logic;

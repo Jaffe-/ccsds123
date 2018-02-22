@@ -6,15 +6,15 @@ use work.common.all;
 
 entity weight_update is
   generic (
-    NX    : integer := 500;
-    NY    : integer := 500;
-    NZ    : integer := 100;
-    OMEGA : integer := 8;
-    D     : integer := 8;
-    R     : integer := 16;
-    V_MIN : integer := -6;
-    V_MAX : integer := 9;
-    CZ    : integer := 4
+    NX    : integer;
+    NY    : integer;
+    NZ    : integer;
+    OMEGA : integer;
+    D     : integer;
+    R     : integer;
+    V_MIN : integer;
+    V_MAX : integer;
+    CZ    : integer
     );
   port (
     clk     : in std_logic;

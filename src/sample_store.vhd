@@ -31,9 +31,9 @@ use work.common.all;
 
 entity sample_store is
   generic (
-    D  : integer := 8;
-    NX : integer := 500;
-    NZ : integer := 100
+    D  : integer;
+    NX : integer;
+    NZ : integer
     );
   port (
     clk     : in std_logic;

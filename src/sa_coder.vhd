@@ -5,12 +5,12 @@ use work.common.all;
 
 entity sa_encoder is
   generic (
-    NZ            : integer := 500;
-    D             : integer := 12;
-    UMAX          : integer := 9;
-    KZ_PRIME      : integer := 8;
-    COUNTER_SIZE  : integer := 8;
-    INITIAL_COUNT : integer := 6
+    NZ            : integer;
+    D             : integer;
+    UMAX          : integer;
+    KZ_PRIME      : integer;
+    COUNTER_SIZE  : integer;
+    INITIAL_COUNT : integer
     );
 
   port (

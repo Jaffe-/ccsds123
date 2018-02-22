@@ -19,10 +19,10 @@ entity control is
     V_MIN    : integer;
     V_MAX    : integer;
     TINC_LOG : integer;
-    NX       : integer := 500;
-    NY       : integer := 500;
-    NZ       : integer := 100;
-    D        : integer := 12
+    NX       : integer;
+    NY       : integer;
+    NZ       : integer;
+    D        : integer
     );
 
   port (

@@ -278,7 +278,9 @@ begin
       OMEGA => OMEGA,
       D     => D,
       R     => R,
-      CZ    => CZ)
+      CZ    => CZ,
+      V_MIN => V_MIN,
+      V_MAX => V_MAX)
     port map (
       clk     => clk,
       aresetn => aresetn,

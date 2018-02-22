@@ -5,9 +5,9 @@ use work.common.all;
 
 entity local_diff_store is
   generic (
-    NZ : integer := 100;
-    P  : integer := 15;
-    D  : integer := 8
+    NZ : integer;
+    P  : integer;
+    D  : integer
     );
   port (
     clk     : in std_logic;

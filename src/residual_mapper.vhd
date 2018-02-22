@@ -5,8 +5,8 @@ use work.common.all;
 
 entity residual_mapper is
   generic (
-    D  : integer := 8;
-    NZ : integer := 100
+    D  : integer;
+    NZ : integer
     );
   port (
     clk     : in std_logic;

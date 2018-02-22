@@ -12,12 +12,12 @@ use work.common.all;
 
 entity local_diff is
   generic (
-    COL_ORIENTED : boolean := true;
-    NX           : integer := 500;
-    NY           : integer := 500;
-    NZ           : integer := 100;
-    CZ           : integer := 1;
-    D            : integer := 12
+    COL_ORIENTED : boolean;
+    NX           : integer;
+    NY           : integer;
+    NZ           : integer;
+    CZ           : integer;
+    D            : integer
     );
   port (
     clk     : in std_logic;

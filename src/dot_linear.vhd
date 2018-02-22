@@ -6,15 +6,15 @@ use work.common.all;
 
 entity dot_product is
   generic (
-    N      : integer := 4;
-    A_SIZE : integer := 12;
-    B_SIZE : integer := 12;
-    NX     : integer := 500;
-    NY     : integer := 500;
-    NZ     : integer := 100;
-    D      : integer := 8;
-    CZ     : integer := 4;
-    OMEGA  : integer := 10
+    N      : integer;
+    A_SIZE : integer;
+    B_SIZE : integer;
+    NX     : integer;
+    NY     : integer;
+    NZ     : integer;
+    D      : integer;
+    CZ     : integer;
+    OMEGA  : integer
     );
 
   port (
