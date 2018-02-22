@@ -58,6 +58,7 @@ architecture rtl of predictor is
   signal side_data_regs : side_data_arr_t;
 begin
   process (clk)
+    variable temp : signed(D+3+OMEGA+3+CZ-1 downto 0);
   begin
     if (rising_edge(clk)) then
       if (aresetn = '0') then
@@ -69,7 +70,15 @@ begin
         --------------------------------------------------------------------------------
         -- Stage 1 - compute numerator in scaled predicted sample expression
         --------------------------------------------------------------------------------
-        numerator     <= resize(in_d_c + shift_left(resize(in_locsum, D+OMEGA+3), OMEGA), R);
+        temp := resize(in_d_c, D+3+OMEGA+3+CZ) + shift_left(resize(in_locsum, D+OMEGA+3), OMEGA);
+
+        -- Perform modR*(temp, R)
+        if (D+3+OMEGA+3+CZ > R) then
+          numerator <= temp(R-1 downto 0);
+        else
+          numerator <= resize(temp, R);
+        end if;
+
         valid_regs(0) <= in_valid;
         side_data_regs(0) <= (
           ctrl    => in_ctrl,
