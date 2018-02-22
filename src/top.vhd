@@ -2,12 +2,12 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.all;
 use work.common.all;
+use ieee.math_real.all;
 
 entity ccsds123_top is
   generic (
     COL_ORIENTED  : boolean := false;
     OMEGA         : integer := 19;
-    CZ            : integer := 4;
     D             : integer := 16;
     P             : integer := 1;
     R             : integer := 64;
@@ -39,6 +39,15 @@ entity ccsds123_top is
 end ccsds123_top;
 
 architecture rtl of ccsds123_top is
+  function CZ return integer is
+  begin
+    if (REDUCED) then
+      return P;
+    else
+      return P + 3;
+    end if;
+  end function CZ;
+
   signal in_handshake : std_logic;
   signal in_ready     : std_logic;
 
@@ -99,7 +108,7 @@ architecture rtl of ccsds123_top is
   signal from_encoder_data     : std_logic_vector(UMAX + D-1 downto 0);
   signal from_encoder_num_bits : integer range 0 to UMAX + D;
 
-  constant C_INCL_PIPE_CTRL : boolean := NZ < 3 + CZ + 2 + 3;
+  constant C_INCL_PIPE_CTRL : boolean := NZ < 3 + integer(ceil(log2(real(CZ)))) + 2 + 3;
 begin
   in_handshake  <= s_axis_tvalid and in_ready;
   s_axis_tready <= in_ready;
