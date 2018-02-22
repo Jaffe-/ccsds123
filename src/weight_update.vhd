@@ -46,7 +46,9 @@ architecture rtl of weight_update is
   signal weight_regs    : weight_arr_t;
   signal new_weight_vec : weight_vec_t;
 
-  type mux_arr_t is array (0 to CZ-1) of signed(D+2+4 downto 0);
+  constant MAX_EXP : integer := max(abs(V_MIN+D-OMEGA), abs(V_MAX+D-OMEGA));
+
+  type mux_arr_t is array (0 to CZ-1) of signed(D+3+MAX_EXP-1 downto 0);
   signal mux_reg : mux_arr_t;
 
   signal valid_regs : std_logic_vector(2 downto 0);
@@ -81,10 +83,6 @@ begin
   end process;
 
   process (clk)
-    variable numerator  : signed(integer(ceil(log2(real(NX*NY+NX))))-1 downto 0);
-    variable increment  : integer range 0 to V_MAX - V_MIN;
-    variable pred_error : signed(D+1 downto 0);
-
     variable mux_temp : mux_arr_t;
   begin
     if (rising_edge(clk)) then
