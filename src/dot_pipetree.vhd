@@ -6,15 +6,15 @@ use work.common.all;
 
 entity dot_product is
   generic (
-    N      : integer := 16;
-    A_SIZE : integer := 12;
-    B_SIZE : integer := 12;
-    NX     : integer := 500;
-    NY     : integer := 500;
-    NZ     : integer := 100;
-    D      : integer := 8;
-    CZ     : integer := 4;
-    OMEGA  : integer := 10
+    N      : integer;
+    A_SIZE : integer;
+    B_SIZE : integer;
+    NX     : integer;
+    NY     : integer;
+    NZ     : integer;
+    D      : integer;
+    CZ     : integer;
+    OMEGA  : integer
     );
 
   port (
@@ -25,7 +25,7 @@ entity dot_product is
     a_valid : in  std_logic;
     b       : in  signed(N*B_SIZE-1 downto 0);
     b_valid : in  std_logic;
-    s       : out signed(A_SIZE + B_SIZE - 1 downto 0);
+    s       : out signed(A_SIZE + B_SIZE + N-1 - 1 downto 0);
     s_valid : out std_logic;
 
     in_locsum  : in signed(D+2 downto 0);
@@ -61,7 +61,7 @@ architecture rtl of dot_product is
 
   signal side_data_regs : side_data_arr_t;
 
-  type s_vec_t is array(0 to 2**(STAGES+1)-2) of signed(A_SIZE+B_SIZE-1 downto 0);
+  type s_vec_t is array(0 to 2**(STAGES+1)-2) of signed(A_SIZE+B_SIZE+N-1-1 downto 0);
   signal sums : s_vec_t;
 begin
 
@@ -73,7 +73,7 @@ begin
   begin
     if (rising_edge(clk)) then
       if (aresetn = '0') then
-        sums       <= (others => to_signed(0, A_SIZE+B_SIZE));
+        sums       <= (others => to_signed(0, A_SIZE+B_SIZE+N-1));
         valid_regs <= (others => '0');
       else
         side_data_regs(0) <= (
@@ -89,7 +89,7 @@ begin
           if (i < N) then
             sums(i) <= a((i+1)*A_SIZE-1 downto i*A_SIZE) * b((i+1)*B_SIZE-1 downto i*B_SIZE);
           else
-            sums(i) <= to_signed(0, A_SIZE+B_SIZE);
+            sums(i) <= to_signed(0, A_SIZE+B_SIZE+N-1);
           end if;
         end loop;
 
