@@ -7,6 +7,7 @@ use ieee.math_real.all;
 entity ccsds123_top is
   generic (
     COL_ORIENTED  : boolean := false;
+    REDUCED       : boolean := false;
     OMEGA         : integer := 19;
     D             : integer := 16;
     P             : integer := 1;
@@ -180,36 +181,71 @@ begin
       out_s_nw => s_nw,
       out_s_w  => s_w);
 
-  i_local_diff : entity work.local_diff
-    generic map (
-      COL_ORIENTED => COL_ORIENTED,
-      NX           => NX,
-      NY           => NY,
-      NZ           => NZ,
-      CZ           => CZ,
-      D            => D)
-    port map (
-      clk     => clk,
-      aresetn => aresetn,
+  g_local_diff_full : if (not REDUCED) generate
+    i_local_diff : entity work.local_diff
+      generic map (
+        COL_ORIENTED => COL_ORIENTED,
+        NX           => NX,
+        NY           => NY,
+        NZ           => NZ,
+        CZ           => CZ,
+        D            => D)
+      port map (
+        clk     => clk,
+        aresetn => aresetn,
 
-      s_cur    => signed(s_axis_tdata),
-      s_ne     => signed(s_ne),
-      s_n      => signed(s_n),
-      s_nw     => signed(s_nw),
-      s_w      => signed(s_w),
-      in_valid => in_handshake,
-      in_ctrl  => from_ctrl_ctrl,
-      in_z     => from_ctrl_z,
+        s_cur    => signed(s_axis_tdata),
+        s_ne     => signed(s_ne),
+        s_n      => signed(s_n),
+        s_nw     => signed(s_nw),
+        s_w      => signed(s_w),
+        in_valid => in_handshake,
+        in_ctrl  => from_ctrl_ctrl,
+        in_z     => from_ctrl_z,
 
-      local_sum => from_local_diff_locsum,
-      d_c       => d_c,
-      d_n       => local_diffs((D+3)*(P+3)-1 downto (D+3)*(P+2)),
-      d_w       => local_diffs((D+3)*(P+2)-1 downto (D+3)*(P+1)),
-      d_nw      => local_diffs((D+3)*(P+1)-1 downto (D+3)*P),
-      out_valid => from_local_diff_valid,
-      out_ctrl  => from_local_diff_ctrl,
-      out_z     => from_local_diff_z,
-      out_s     => from_local_diff_s);
+        local_sum => from_local_diff_locsum,
+        d_c       => d_c,
+        d_n       => local_diffs((D+3)*(P+3)-1 downto (D+3)*(P+2)),
+        d_w       => local_diffs((D+3)*(P+2)-1 downto (D+3)*(P+1)),
+        d_nw      => local_diffs((D+3)*(P+1)-1 downto (D+3)*P),
+        out_valid => from_local_diff_valid,
+        out_ctrl  => from_local_diff_ctrl,
+        out_z     => from_local_diff_z,
+        out_s     => from_local_diff_s);
+  end generate g_local_diff_full;
+
+  g_local_diff_reduced : if (REDUCED) generate
+    i_local_diff : entity work.local_diff
+      generic map (
+        COL_ORIENTED => COL_ORIENTED,
+        NX           => NX,
+        NY           => NY,
+        NZ           => NZ,
+        CZ           => CZ,
+        D            => D)
+      port map (
+        clk     => clk,
+        aresetn => aresetn,
+
+        s_cur    => signed(s_axis_tdata),
+        s_ne     => signed(s_ne),
+        s_n      => signed(s_n),
+        s_nw     => signed(s_nw),
+        s_w      => signed(s_w),
+        in_valid => in_handshake,
+        in_ctrl  => from_ctrl_ctrl,
+        in_z     => from_ctrl_z,
+
+        local_sum => from_local_diff_locsum,
+        d_c       => d_c,
+        d_n       => open,
+        d_w       => open,
+        d_nw      => open,
+        out_valid => from_local_diff_valid,
+        out_ctrl  => from_local_diff_ctrl,
+        out_z     => from_local_diff_z,
+        out_s     => from_local_diff_s);
+  end generate g_local_diff_reduced;
 
   g_local_diff_store : if (P > 0) generate
     i_local_diff_store : entity work.local_diff_store
