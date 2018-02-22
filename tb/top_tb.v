@@ -24,7 +24,6 @@ module top_tb;
        .NZ(NZ),
        .P(P),
        .R(R),
-       .CZ(CZ),
        .OMEGA(OMEGA),
        .TINC_LOG(TINC_LOG),
        .V_MIN(V_MIN),
@@ -33,6 +32,8 @@ module top_tb;
        .COUNTER_SIZE(COUNTER_SIZE),
        .INITIAL_COUNT(INITIAL_COUNT),
        .KZ_PRIME(KZ_PRIME),
+       .COL_ORIENTED(COL_ORIENTED),
+       .REDUCED(REDUCED),
        .BUS_WIDTH(BUS_WIDTH))
    i_top
      (.clk(clk),
