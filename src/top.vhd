@@ -98,10 +98,43 @@ architecture rtl of ccsds123_top is
   signal from_encoder_last     : std_logic;
   signal from_encoder_data     : std_logic_vector(UMAX + D-1 downto 0);
   signal from_encoder_num_bits : integer range 0 to UMAX + D;
+
+  constant C_INCL_PIPE_CTRL : boolean := NZ < 3 + CZ + 2 + 3;
 begin
-  in_ready      <= '1';                 -- for now
   in_handshake  <= s_axis_tvalid and in_ready;
   s_axis_tready <= in_ready;
+
+  -- Stall input if the pipeline is deeper than NZ, and we have filled up NZ
+  -- components already
+  --
+  --  Local diff calculations: 3
+  --  Dot product:             CZ
+  --  Predictor:               2
+  --  Weight update:           3
+  g_pipe_ctrl : if (C_INCL_PIPE_CTRL) generate
+    signal count : integer range 0 to NZ;
+  begin
+    process (clk)
+    begin
+      if (rising_edge(clk)) then
+        if (aresetn = '0') then
+          count <= 0;
+        else
+          if (in_handshake = '1' and from_w_update_valid = '0') then
+            count <= count + 1;
+          elsif (from_w_update_valid = '1' and in_handshake = '0') then
+            count <= count - 1;
+          end if;
+        end if;
+      end if;
+    end process;
+
+    in_ready <= '1' when count < NZ else '0';
+  end generate g_pipe_ctrl;
+
+  g_nopipe_ctrl : if (not C_INCL_PIPE_CTRL) generate
+    in_ready <= '1';
+  end generate g_nopipe_ctrl;
 
   i_control : entity work.control
     generic map (
