@@ -169,20 +169,22 @@ begin
       out_z     => from_local_diff_z,
       out_s     => from_local_diff_s);
 
-  i_local_diff_store : entity work.local_diff_store
-    generic map (
-      NZ => NZ,
-      P  => P,
-      D  => D)
-    port map (
-      clk     => clk,
-      aresetn => aresetn,
+  g_local_diff_store : if (P > 0) generate
+    i_local_diff_store : entity work.local_diff_store
+      generic map (
+        NZ => NZ,
+        P  => P,
+        D  => D)
+      port map (
+        clk     => clk,
+        aresetn => aresetn,
 
-      wr            => from_local_diff_valid,
-      wr_local_diff => d_c,
-      z             => from_local_diff_z,
+        wr            => from_local_diff_valid,
+        wr_local_diff => d_c,
+        z             => from_local_diff_z,
 
-      local_diffs => local_diffs((D+3)*P-1 downto 0));
+        local_diffs => local_diffs((D+3)*P-1 downto 0));
+  end generate g_local_diff_store;
 
   i_weight_store : entity work.weight_store
     generic map (
