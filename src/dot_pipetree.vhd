@@ -63,6 +63,8 @@ architecture rtl of dot_product is
 
   type s_vec_t is array(0 to 2**(STAGES+1)-2) of signed(A_SIZE+B_SIZE+N-1-1 downto 0);
   signal sums : s_vec_t;
+
+  constant RESULT_SIZE : integer := A_SIZE+B_SIZE+N-1;
 begin
 
   -- Generate the pipeline stages
@@ -87,14 +89,14 @@ begin
 
         for i in 0 to 2**STAGES-1 loop
           if (i < N) then
-            sums(i) <= a((i+1)*A_SIZE-1 downto i*A_SIZE) * b((i+1)*B_SIZE-1 downto i*B_SIZE);
+            sums(i) <= resize(a((i+1)*A_SIZE-1 downto i*A_SIZE) * b((i+1)*B_SIZE-1 downto i*B_SIZE), RESULT_SIZE);
           else
-            sums(i) <= to_signed(0, A_SIZE+B_SIZE+N-1);
+            sums(i) <= to_signed(0, RESULT_SIZE);
           end if;
         end loop;
 
         for i in 0 to 2**STAGES-2 loop
-          sums(2**STAGES + i) <= sums(2*i) + sums(2*i+1);
+          sums(2**STAGES + i) <= resize(sums(2*i) + sums(2*i+1), RESULT_SIZE);
         end loop;
 
         For i in 1 to STAGES loop
