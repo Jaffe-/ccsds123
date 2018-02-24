@@ -6,8 +6,6 @@ module top_tb;
 
    parameter PERIOD = 10;
 
-   parameter BUBBLES = 1;
-
    reg clk, aresetn;
    reg [D-1:0] s_axis_tdata;
    reg         s_axis_tvalid;
@@ -70,42 +68,54 @@ module top_tb;
          $finish;
       end
 
-      while (!$feof(f_in)) begin
-         if (BUBBLES) begin
-            while ($urandom % 3 != 0) begin
-               s_axis_tdata <= 0;
-               s_axis_tvalid <= 1'b0;
-               @(posedge clk);
-            end
-         end
+      for (i = 0; i < 2; i = i + 1) begin
+         $display("Starting iteration %0d", i);
+         $fseek(f_in, 0, 0);
+
          s_axis_tdata[D/2-1:0] <= $fgetc(f_in);
          s_axis_tdata[D-1:D/2] <= $fgetc(f_in);
          s_axis_tvalid <= 1'b1;
-         @(posedge clk);
-      end;
+         while (!$feof(f_in)) begin
+            @(posedge clk);
+            if (s_axis_tready) begin
+               if ($test$plusargs("BUBBLES") && $urandom % 3 != 0) begin
+                  s_axis_tvalid <= 1'b0;
+               end else begin
+                  s_axis_tdata[D/2-1:0] <= $fgetc(f_in);
+                  s_axis_tdata[D-1:D/2] <= $fgetc(f_in);
+                  s_axis_tvalid <= 1'b1;
+               end
+            end
+         end
+      end
 
       $fclose(f_in);
 
       s_axis_tvalid <= 1'b0;
    end;
 
-   integer j;
+   integer byte_idx, j;
    reg [200*8:0] out_filename;
+   reg [200*8:0] out_dir;
    initial begin
-      if (!$value$plusargs("OUT_FILENAME=%s", out_filename)) begin
-         out_filename = "out.bin";
+      if (!$value$plusargs("OUT_DIR=%s", out_dir)) begin
+         out_dir = ".";
       end
-      f_out = $fopen(out_filename, "wb");
-      while (res_last !== 1'b1) begin
-         @(posedge clk);
-         if (res_valid) begin
-            for (j = BUS_WIDTH/8-1; j >= 0; j = j - 1) begin
-               $fwrite(f_out, "%c", res[j*8+:8]);
+      for (j = 0; j < 2; j = j + 1) begin
+         $sformat(out_filename, "%0s/out_%0d.bin", out_dir, j);
+         f_out = $fopen(out_filename, "wb");
+         while (res_last !== 1'b1) begin
+            @(posedge clk);
+            if (res_valid) begin
+               for (byte_idx = BUS_WIDTH/8-1; byte_idx >= 0; byte_idx = byte_idx - 1) begin
+                  $fwrite(f_out, "%c", res[byte_idx*8+:8]);
+               end
             end
          end
+         @(posedge clk);
+         $display("Done with iteration %0d", j);
+         $fclose(f_out);
       end
-      $display("Done.\n");
-      $fclose(f_out);
       $finish;
    end;
 endmodule // top_tb
