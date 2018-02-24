@@ -1,7 +1,7 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.all;
-
+use ieee.math_real.all;
 use work.common.all;
 
 --------------------------------------------------------------------------------
@@ -22,6 +22,7 @@ entity control is
     NX       : integer;
     NY       : integer;
     NZ       : integer;
+    CZ       : integer;
     D        : integer
     );
 
@@ -29,7 +30,9 @@ entity control is
     clk     : in std_logic;
     aresetn : in std_logic;
 
-    tick : in std_logic;
+    tick            : in  std_logic;
+    w_upd_handshake : in  std_logic;
+    ready           : out std_logic;
 
     out_ctrl : out ctrl_t;
     out_z    : out integer range 0 to NZ - 1
@@ -42,7 +45,40 @@ architecture rtl of control is
   signal y : integer range 0 to NY-1;
   signal z : integer range 0 to NZ-1;
   signal t : integer range 0 to NX*NY-1;
+
+  constant C_INCL_PIPE_CTRL : boolean := NZ < 3 + integer(ceil(log2(real(CZ)))) + 2 + 3;
 begin
+  -- Stall input if the pipeline is deeper than NZ, and we have filled up NZ
+  -- components already
+  --
+  --  Local diff calculations: 3
+  --  Dot product:             CZ
+  --  Predictor:               2
+  --  Weight update:           3
+  g_pipe_ctrl : if (C_INCL_PIPE_CTRL) generate
+    signal count : integer range 0 to NZ;
+  begin
+    process (clk)
+    begin
+      if (rising_edge(clk)) then
+        if (aresetn = '0') then
+          count <= 0;
+        else
+          if (tick = '1' and w_upd_handshake = '0') then
+            count <= count + 1;
+          elsif (w_upd_handshake = '1' and tick = '0') then
+            count <= count - 1;
+          end if;
+        end if;
+      end if;
+    end process;
+
+    ready <= '1' when count < NZ else '0';
+  end generate g_pipe_ctrl;
+
+  g_nopipe_ctrl : if (not C_INCL_PIPE_CTRL) generate
+    ready <= '1';
+  end generate g_nopipe_ctrl;
 
   -- Component counting logic
   process (clk)
