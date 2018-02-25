@@ -113,7 +113,7 @@ begin
   end process;
 
   -- Create ctrl signals
-  process (x, y, z, t)
+  process (x, y, z, t, tick)
     variable first_line     : std_logic;
     variable first_pix      : std_logic;
     variable last_pix       : std_logic;
@@ -133,7 +133,7 @@ begin
     elsif (x = NX - 1) then
       last_pix := '1';
       if (y = NY - 1 and z = NZ - 1) then
-        last := '1';
+        last := tick;
       end if;
     end if;
 

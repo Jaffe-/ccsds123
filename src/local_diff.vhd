@@ -181,13 +181,17 @@ begin
           d_nw <= to_signed(0, D+3);
         end if;
 
-        out_valid <= side_data_regs(1).valid;
-        out_ctrl  <= side_data_regs(1).ctrl;
-        out_z     <= side_data_regs(1).z;
-        out_s     <= side_data_regs(1).s;
+        side_data_regs(2).valid <= side_data_regs(1).valid;
+        side_data_regs(2).ctrl  <= side_data_regs(1).ctrl;
+        side_data_regs(2).z     <= side_data_regs(1).z;
+        side_data_regs(2).s     <= side_data_regs(1).s;
       end if;
     end if;
   end process;
 
+  out_valid <= side_data_regs(2).valid;
+  out_ctrl  <= side_data_regs(2).ctrl;
+  out_z     <= side_data_regs(2).z;
+  out_s     <= side_data_regs(2).s;
 end rtl;
 
