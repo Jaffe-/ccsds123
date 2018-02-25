@@ -54,7 +54,6 @@ def write_sim_params(dimensions, parameters, filename):
         "D": parameters["D"],
         "P": parameters["P"],
         "R": parameters["R"],
-        "CZ": parameters["P"] + 3,
         "OMEGA": parameters["OMEGA"],
         "TINC_LOG": parameters["TINC_LOG"],
         "V_MIN": parameters["V_MIN"],
