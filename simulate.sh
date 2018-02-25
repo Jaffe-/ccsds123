@@ -11,12 +11,10 @@ if [[ "$3" = "BUBBLES" ]]; then
 	BUBBLE_ARG="-testplusarg BUBBLES"
 fi
 
-rm out_0.bin 
+rm out_0.bin
 rm out_1.bin
 
 cd project/project.sim/sim_1/behav
-./compile.sh
-./elaborate.sh
 xv_path="/opt/Xilinx/Vivado/2017.2"
 ExecStep()
 {
@@ -27,6 +25,8 @@ then
 exit $RETVAL
 fi
 }
+./compile.sh
+./elaborate.sh
 ExecStep $xv_path/bin/xsim top_tb_behav -key {Behavioral:sim_1:Functional:top_tb} -tclbatch ../../../../tcl/simulate.tcl -testplusarg IN_FILENAME=$IN_NAME -testplusarg OUT_DIR=$DIR $BUBBLE_ARG
 cd $DIR
 mv comp_params.bak tb/comp_params.v
