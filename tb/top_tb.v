@@ -6,6 +6,8 @@ module top_tb;
 
    parameter PERIOD = 10;
 
+   parameter BUBBLES = 0;
+
    reg clk, aresetn;
    reg [D-1:0] s_axis_tdata;
    reg         s_axis_tvalid;
@@ -78,7 +80,7 @@ module top_tb;
          while (!$feof(f_in)) begin
             @(posedge clk);
             if (s_axis_tready) begin
-               if ($test$plusargs("BUBBLES") && $urandom % 3 != 0) begin
+               if ((BUBBLES || $test$plusargs("BUBBLES")) && $urandom % 3 != 0) begin
                   s_axis_tvalid <= 1'b0;
                end else begin
                   s_axis_tdata[D/2-1:0] <= $fgetc(f_in);
