@@ -6,6 +6,7 @@ from ccsds_lib import *
 
 COMP_FILENAME = "comp_temp"
 CONVERTED_FILENAME = "converted_img"
+HEADER_SIZE=19
 
 def make_image_list(basedir):
     pics = {"HICO_L1B": [{"idx": [1, 2, 3, 4, 6], "dim": [512, 2000], "signed": True},
