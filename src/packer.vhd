@@ -8,8 +8,9 @@ use IEEE.NUMERIC_STD.all;
 
 entity packer is
   generic (
-    BUS_WIDTH    : integer := 64;
-    MAX_IN_WIDTH : integer := 32
+    LITTLE_ENDIAN : boolean;
+    BUS_WIDTH     : integer;
+    MAX_IN_WIDTH  : integer
     );
   port (
     clk     : in std_logic;
@@ -51,7 +52,7 @@ begin
       else
         if (in_valid = '1') then
           for i in 0 to BUS_WIDTH - 1 loop
-            data_nxts(i)                                := (others => '0');
+            data_nxts(i)                            := (others => '0');
             data_nxts(i)(0 to i + MAX_IN_WIDTH - 1) := data_regs(current_reg)(0 to i - 1) & in_data;
           end loop;
 
@@ -80,5 +81,24 @@ begin
       end if;
     end if;
   end process;
-  out_data <= data_regs(prev_reg);
+
+  -- Endianness conversion
+  process (data_regs, prev_reg)
+    constant NUM_BYTES : integer := BUS_WIDTH/8;
+    variable NEW_INDEX : integer;
+
+    -- Simplifies dealing with data_regs range running in the opposite direction
+    variable data      : std_logic_vector(BUS_WIDTH-1 downto 0);
+  begin
+    data := data_regs(prev_reg);
+    if (LITTLE_ENDIAN) then
+      for i in 0 to NUM_BYTES - 1 loop
+        NEW_INDEX                                  := NUM_BYTES - 1 - i;
+        out_data(8*NEW_INDEX+7 downto 8*NEW_INDEX) <= data(8*i+7 downto 8*i);
+      end loop;
+    else
+      out_data <= data;
+    end if;
+  end process;
+
 end rtl;

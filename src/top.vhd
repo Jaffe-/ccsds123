@@ -5,11 +5,12 @@ use work.common.all;
 
 entity ccsds123_top is
   generic (
+    LITTLE_ENDIAN : boolean := true;
     COL_ORIENTED  : boolean := false;
     REDUCED       : boolean := false;
     OMEGA         : integer := 19;
     D             : integer := 16;
-    P             : integer := 1;
+    P             : integer := 15;
     R             : integer := 64;
     TINC_LOG      : integer := 4;
     V_MIN         : integer := -6;
@@ -21,7 +22,7 @@ entity ccsds123_top is
     BUS_WIDTH     : integer := 16;
     NX            : integer := 500;
     NY            : integer := 500;
-    NZ            : integer := 100
+    NZ            : integer := 10
     );
   port (
     clk     : in std_logic;
@@ -388,8 +389,9 @@ begin
 
   i_packer : entity work.packer
     generic map (
-      BUS_WIDTH    => BUS_WIDTH,
-      MAX_IN_WIDTH => UMAX + D)
+      LITTLE_ENDIAN => LITTLE_ENDIAN,
+      BUS_WIDTH     => BUS_WIDTH,
+      MAX_IN_WIDTH  => UMAX + D)
     port map (
       clk     => clk,
       aresetn => aresetn,
