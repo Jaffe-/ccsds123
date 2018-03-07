@@ -38,12 +38,12 @@ module top_tb;
    i_top
      (.clk(clk),
       .aresetn(aresetn),
-      .s_axis_tdata(s_axis_tdata),
-      .s_axis_tvalid(s_axis_tvalid),
-      .s_axis_tready(s_axis_tready),
-      .out_data(res),
-      .out_valid(res_valid),
-      .out_last(res_last));
+      .in_tdata(s_axis_tdata),
+      .in_tvalid(s_axis_tvalid),
+      .in_tready(s_axis_tready),
+      .out_tdata(res),
+      .out_tvalid(res_valid),
+      .out_tlast(res_last));
 
    always #(PERIOD/2) clk = ~clk;
 

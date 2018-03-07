@@ -29,13 +29,13 @@ entity ccsds123_top is
     aresetn : in std_logic;
 
     -- Input AXI stream
-    s_axis_tdata  : in  std_logic_vector(D-1 downto 0);
-    s_axis_tvalid : in  std_logic;
-    s_axis_tready : out std_logic;
+    in_tdata  : in  std_logic_vector(D-1 downto 0);
+    in_tvalid : in  std_logic;
+    in_tready : out std_logic;
 
-    out_data  : out std_logic_vector(BUS_WIDTH-1 downto 0);
-    out_valid : out std_logic;
-    out_last  : out std_logic
+    out_tdata  : out std_logic_vector(BUS_WIDTH-1 downto 0);
+    out_tvalid : out std_logic;
+    out_tlast  : out std_logic
     );
 end ccsds123_top;
 
@@ -109,8 +109,8 @@ architecture rtl of ccsds123_top is
   signal from_encoder_data     : std_logic_vector(UMAX + D-1 downto 0);
   signal from_encoder_num_bits : integer range 0 to UMAX + D;
 begin
-  in_handshake  <= s_axis_tvalid and in_ready;
-  s_axis_tready <= in_ready;
+  in_handshake  <= in_tvalid and in_ready;
+  in_tready <= in_ready;
 
   i_control : entity work.control
     generic map (
@@ -142,7 +142,7 @@ begin
       clk     => clk,
       aresetn => aresetn,
 
-      in_sample => s_axis_tdata,
+      in_sample => in_tdata,
       in_valid  => in_handshake,
 
       out_s_ne => s_ne,
@@ -163,7 +163,7 @@ begin
         clk     => clk,
         aresetn => aresetn,
 
-        s_cur    => signed(s_axis_tdata),
+        s_cur    => signed(in_tdata),
         s_ne     => signed(s_ne),
         s_n      => signed(s_n),
         s_nw     => signed(s_nw),
@@ -196,7 +196,7 @@ begin
         clk     => clk,
         aresetn => aresetn,
 
-        s_cur    => signed(s_axis_tdata),
+        s_cur    => signed(in_tdata),
         s_ne     => signed(s_ne),
         s_n      => signed(s_n),
         s_nw     => signed(s_nw),
@@ -401,8 +401,8 @@ begin
       in_data     => from_encoder_data,
       in_num_bits => from_encoder_num_bits,
 
-      out_valid => out_valid,
-      out_last  => out_last,
-      out_data  => out_data);
+      out_valid => out_tvalid,
+      out_last  => out_tlast,
+      out_data  => out_tdata);
 
 end rtl;
