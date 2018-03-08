@@ -29,7 +29,7 @@ end combiner;
 architecture rtl of combiner is
   constant LENGTH_BITS : integer := integer(ceil(log2(real(MAX_LENGTH))));
 
-  type in_words_arr_t is array (0 to N_WORDS-1) of std_logic_vector(MAX_LENGTH - 1 downto 0);
+  type in_words_arr_t is array (0 to N_WORDS-1) of std_logic_vector(BLOCK_SIZE + MAX_LENGTH - 2 downto 0);
   type word_arr_t is array (0 to N_WORDS, 0 to N_WORDS-1) of std_logic_vector(BLOCK_SIZE + MAX_LENGTH - 2 downto 0);
   type in_lengths_arr_t is array (0 to N_WORDS-1) of integer range 0 to MAX_LENGTH;
   type length_arr_t is array (0 to N_WORDS-1, 0 to N_WORDS-1) of integer range 0 to BLOCK_SIZE + MAX_LENGTH - 1;
@@ -51,7 +51,7 @@ begin
   begin
     -- Extract words and lengths
     for i in 0 to N_WORDS-1 loop
-      in_words_arr(i)   <= in_words((i+1)*MAX_LENGTH-1 downto i*MAX_LENGTH);
+      in_words_arr(i)   <= in_words((i+1)*MAX_LENGTH-1 downto i*MAX_LENGTH) & (BLOCK_SIZE-2 downto 0 => '0');
       in_lengths_arr(i) <= to_integer(in_lengths((i+1)*LENGTH_BITS-1 downto i*LENGTH_BITS));
 
       out_words((i+1)*BLOCK_SIZE-1 downto i*BLOCK_SIZE) <= full_blocks_arr(N_WORDS-1, i);
@@ -69,8 +69,9 @@ begin
       if (aresetn = '0') then
         preshift          <= 0;
         full_blocks_valid <= (others => (others => '0'));
+        full_blocks_arr   <= (others => (others => (others => '0')));
       else
-        preshift_sum  := to_unsigned(0, 6);
+        preshift_sum  := to_unsigned(preshift, 6);
         words(0, 0)   <= std_logic_vector(shift_right(unsigned(in_words_arr(0)), preshift));
         lengths(0, 0) <= in_lengths_arr(0) + preshift;
         for i in 1 to N_WORDS-1 loop
@@ -86,23 +87,23 @@ begin
               if (lengths(i-1, j-1) >= BLOCK_SIZE) then
                 full_blocks_valid(i-1)(j-1) <= '1';
                 full_blocks_arr(i-1, j-1)   <= words(i-1, j-1)(MAX_LENGTH+BLOCK_SIZE-2 downto MAX_LENGTH-1);
-                remaining_bits            := words(i-1, j-1)(MAX_LENGTH-2 downto 0) & (BLOCK_SIZE-1 downto 0 => '0');
-                to_shift                  := lengths(i-1, j-1) - BLOCK_SIZE;
+                remaining_bits              := words(i-1, j-1)(MAX_LENGTH-2 downto 0) & (BLOCK_SIZE-1 downto 0 => '0');
+                to_shift                    := lengths(i-1, j-1) - BLOCK_SIZE;
               else
                 full_blocks_valid(i-1)(j-1) <= '0';
-                remaining_bits            := words(i-1, j-1);
-                to_shift                  := lengths(i-1, j-1);
+                remaining_bits              := words(i-1, j-1);
+                to_shift                    := lengths(i-1, j-1);
               end if;
 
               words(i, j)   <= remaining_bits or std_logic_vector(shift_right(unsigned(words(i-1, j)), to_shift));
-              lengths(i, j) <= lengths(i-1, j-1) + to_shift;
+              lengths(i, j) <= to_shift + lengths(i-1, j);
 
             elsif (j > i) then
               words(i, j)   <= words(i-1, j);
               lengths(i, j) <= lengths(i-1, j);
             elsif (j < i) then
               full_blocks_valid(i)(j) <= full_blocks_valid(i-1)(j);
-              full_blocks_arr(i, j) <= full_blocks_arr(i-1, j);
+              full_blocks_arr(i, j)   <= full_blocks_arr(i-1, j);
             end if;
 
           end loop;
