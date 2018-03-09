@@ -2,16 +2,19 @@
 
 module combiner_tb;
    parameter N_WORDS = 4;
-   parameter MAX_LENGTH = 20;
+   parameter MAX_LENGTH = 48;
+   parameter BLOCK_SIZE = 32;
+
+   parameter LENGTH_BITS = $clog2(MAX_LENGTH);
    parameter PERIOD = 10;
 
    reg clk, aresetn;
    reg [N_WORDS*MAX_LENGTH-1:0] in_words;
-   reg [N_WORDS*5-1:0]                    in_lengths;
+   reg [N_WORDS*LENGTH_BITS-1:0]  in_lengths;
    reg                          in_valid;
 
    combiner
-     #(.BLOCK_SIZE(64),
+     #(.BLOCK_SIZE(BLOCK_SIZE),
        .N_WORDS(N_WORDS),
        .MAX_LENGTH(MAX_LENGTH))
    i_dut
@@ -26,12 +29,20 @@ module combiner_tb;
    initial begin
       clk <= 1'b0;
       aresetn <= 1'b0;
+      in_words <= 0;
+      in_lengths <= 0;
+      in_valid <= 1'b0;
+
+      $display("L BITS = %d", LENGTH_BITS);
 
       repeat(4) @(posedge clk);
       aresetn <= 1'b1;
 
-      in_words <= {20'hAA000, 20'hB0000, 20'hCCC00, 20'hDDDD0};
-      in_lengths <= {5'h8, 5'h4, 5'hC, 5'h10};
+      in_words <= {48'hDDD000000000,
+                   48'hCCCCCC000000,
+                   48'hBBBBBBBBB000,
+                   48'hAAAAAAAAAAAA};
+      in_lengths <= {6'd12, 6'd24, 6'd36, 6'd48};
       in_valid <= 1'b1;
       @(posedge clk);
    end;
