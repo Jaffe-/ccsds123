@@ -10,7 +10,6 @@ entity dot_product is
     A_SIZE : integer;
     B_SIZE : integer;
     NX     : integer;
-    NY     : integer;
     NZ     : integer;
     D      : integer;
     CZ     : integer;

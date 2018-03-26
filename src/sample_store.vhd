@@ -26,14 +26,14 @@ use work.common.all;
 --                                                   +-->| NZ |---> NW
 --                                                       +----+
 --
--- (Boxes indicate delays, numbers indicate number of clock cycles)
+-- (Boxes indicate delays, labels indicate number of clock cycles)
 --------------------------------------------------------------------------------
 
 entity sample_store is
   generic (
-    D  : integer;
-    NX : integer;
-    NZ : integer
+    D         : integer;
+    NX        : integer;
+    NZ        : integer
     );
   port (
     clk     : in std_logic;

@@ -14,7 +14,6 @@ entity local_diff is
   generic (
     COL_ORIENTED : boolean;
     NX           : integer;
-    NY           : integer;
     NZ           : integer;
     CZ           : integer;
     D            : integer

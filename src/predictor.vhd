@@ -6,7 +6,6 @@ use work.common.all;
 entity predictor is
   generic (
     NX    : integer;
-    NY    : integer;
     NZ    : integer;
     D     : integer;
     R     : integer;
