@@ -106,7 +106,7 @@ module top_tb;
       for (j = 0; j < 2; j = j + 1) begin
          $sformat(out_filename, "%0s/out_%0d.bin", out_dir, j);
          f_out = $fopen(out_filename, "wb");
-         while (res_last !== 1'b1) begin
+         while (res_valid !== 1'b1 || res_last !== 1'b1) begin
             @(posedge clk);
             if (res_valid) begin
                for (byte_idx = 0; byte_idx < BUS_WIDTH/8; byte_idx = byte_idx + 1) begin
