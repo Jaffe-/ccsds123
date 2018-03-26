@@ -97,6 +97,9 @@ begin
             n_blocks_arr(0, i) <= to_integer(sum(sum'high downto BLOCK_SIZE_BITS));
             num_remaining_bits := sum(BLOCK_SIZE_BITS-1 downto 0);
           end loop;
+          if (in_last = '1') then
+            num_remaining_bits := (others => '0');
+          end if;
         end if;
         valid_regs(0) <= in_valid;
         last_regs(0)  <= in_last;
@@ -134,6 +137,7 @@ begin
           if (last_regs(1) = '1') then
             full_blocks(count) <= remaining_bits(BLOCK_SIZE+MAX_LENGTH-2 downto MAX_LENGTH-1);
             count              := count + 1;
+            remaining_bits     := (others => '0');
           end if;
         end if;
         to_fifo_count <= count;
@@ -234,7 +238,7 @@ begin
     -- Perform optional endianness swap
     if (LITTLE_ENDIAN) then
       for i in 0 to BLOCK_SIZE/8-1 loop
-        out_data((i+1)*8-1 downto i*8) <= from_fifo_blocks(counter)((BLOCK_SIZE/8-i+1)*8-1 downto ((BLOCK_SIZE/8-i)*8));
+        out_data((i+1)*8-1 downto i*8) <= from_fifo_blocks(counter)((BLOCK_SIZE/8-i)*8-1 downto ((BLOCK_SIZE/8-i-1)*8));
       end loop;
     else
       out_data <= from_fifo_blocks(counter);
