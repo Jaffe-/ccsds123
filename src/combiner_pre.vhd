@@ -12,9 +12,10 @@ use xpm.vcomponents.all;
 
 entity combiner is
   generic (
-    BLOCK_SIZE : integer := 64;
-    N_WORDS    : integer := 4;
-    MAX_LENGTH : integer := 30
+    BLOCK_SIZE    : integer := 64;
+    N_WORDS       : integer := 4;
+    MAX_LENGTH    : integer := 30;
+    LITTLE_ENDIAN : boolean := false
     );
   port (
     clk     : in std_logic;
@@ -63,7 +64,7 @@ architecture rtl of combiner is
   signal from_fifo_count  : integer range 0 to MAX_BLOCKS;
   signal from_fifo_blocks : full_blocks_t;
 
-  signal counter    : integer range 0 to MAX_BLOCKS-1;
+  signal counter : integer range 0 to MAX_BLOCKS-1;
 begin
 
 
@@ -216,7 +217,7 @@ begin
       else
         if (fifo_rden = '1') then
           from_fifo_valid <= '1';
-          counter <= 0;
+          counter         <= 0;
         elsif (counter = from_fifo_count - 1) then
           from_fifo_valid <= '0';
         elsif (from_fifo_valid = '1') then
@@ -227,10 +228,18 @@ begin
     end if;
   end process;
 
-  out_data  <= from_fifo_blocks(counter);
   out_valid <= from_fifo_valid;
-  process (counter, from_fifo_last, from_fifo_count)
+  process (counter, from_fifo_last, from_fifo_count, from_fifo_blocks)
   begin
+    -- Perform optional endianness swap
+    if (LITTLE_ENDIAN) then
+      for i in 0 to BLOCK_SIZE/8-1 loop
+        out_data((i+1)*8-1 downto i*8) <= from_fifo_blocks(counter)((BLOCK_SIZE/8-i+1)*8-1 downto ((BLOCK_SIZE/8-i)*8));
+      end loop;
+    else
+      out_data <= from_fifo_blocks(counter);
+    end if;
+
     if (from_fifo_last = '1' and counter = from_fifo_count - 1) then
       out_last <= '1';
     else
