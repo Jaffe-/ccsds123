@@ -109,7 +109,7 @@ module top_tb;
          while (res_last !== 1'b1) begin
             @(posedge clk);
             if (res_valid) begin
-               for (byte_idx = BUS_WIDTH/8-1; byte_idx >= 0; byte_idx = byte_idx - 1) begin
+               for (byte_idx = 0; byte_idx < BUS_WIDTH/8; byte_idx = byte_idx + 1) begin
                   $fwrite(f_out, "%c", res[byte_idx*8+:8]);
                end
             end
