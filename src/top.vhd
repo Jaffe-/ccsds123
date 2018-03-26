@@ -19,7 +19,7 @@ entity ccsds123_top is
     KZ_PRIME      : integer := 8;
     COUNTER_SIZE  : integer := 8;
     INITIAL_COUNT : integer := 6;
-    BUS_WIDTH     : integer := 16;
+    BUS_WIDTH     : integer := 64;
     NX            : integer := 500;
     NY            : integer := 500;
     NZ            : integer := 10
@@ -387,22 +387,23 @@ begin
       out_data     => from_encoder_data,
       out_num_bits => from_encoder_num_bits);
 
-  i_packer : entity work.packer
+  i_packer : entity work.combiner
     generic map (
-      LITTLE_ENDIAN => LITTLE_ENDIAN,
-      BUS_WIDTH     => BUS_WIDTH,
-      MAX_IN_WIDTH  => UMAX + D)
+      BLOCK_SIZE => 64,
+      N_WORDS => 1,
+      MAX_LENGTH => UMAX + D)
     port map (
-      clk     => clk,
+      clk => clk,
       aresetn => aresetn,
 
-      in_valid    => from_encoder_valid,
-      in_last     => from_encoder_last,
-      in_data     => from_encoder_data,
-      in_num_bits => from_encoder_num_bits,
+      in_words => from_encoder_data,
+      in_lengths => to_unsigned(from_encoder_num_bits, 5),
+      in_valid => from_encoder_valid,
+      in_last => from_encoder_last,
 
+      out_data => out_tdata,
       out_valid => out_tvalid,
-      out_last  => out_tlast,
-      out_data  => out_tdata);
+      out_last => out_tlast
+      );
 
 end rtl;
