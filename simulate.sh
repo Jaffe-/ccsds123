@@ -27,7 +27,7 @@ fi
 }
 ./compile.sh
 ./elaborate.sh
-ExecStep $xv_path/bin/xsim top_tb_behav -key {Behavioral:sim_1:Functional:top_tb} -tclbatch ../../../../tcl/simulate.tcl -testplusarg IN_FILENAME=$IN_NAME -testplusarg OUT_DIR=$DIR $BUBBLE_ARG
+ExecStep $xv_path/bin/xsim top_tb_behav -key {Behavioral:sim_1:Functional:top_tb} -tclbatch ../../../../tcl/simulate.tcl -testplusarg IN_FILENAME=$DIR/$IN_NAME -testplusarg OUT_DIR=$DIR $BUBBLE_ARG
 cd $DIR
 mv comp_params.bak tb/comp_params.v
 cmp out_0.bin $GOLDEN
