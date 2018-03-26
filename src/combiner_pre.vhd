@@ -14,7 +14,7 @@ entity combiner is
   generic (
     BLOCK_SIZE : integer := 64;
     N_WORDS    : integer := 4;
-    MAX_LENGTH : integer := 48
+    MAX_LENGTH : integer := 30
     );
   port (
     clk     : in std_logic;
@@ -35,12 +35,12 @@ architecture rtl of combiner is
   constant LENGTH_BITS         : integer := integer(ceil(log2(real(MAX_LENGTH))));
   constant BLOCK_SIZE_BITS     : integer := integer(ceil(log2(real(BLOCK_SIZE))));
   constant MAX_BLOCKS_PER_WORD : integer := (BLOCK_SIZE + MAX_LENGTH) / BLOCK_SIZE;
-  constant MAX_BLOCKS          : integer := (BLOCK_SIZE + N_WORDS * MAX_LENGTH) / BLOCK_SIZE + 1;
+  constant MAX_BLOCKS          : integer := (BLOCK_SIZE - 1 + N_WORDS * MAX_LENGTH) / BLOCK_SIZE + 1;
 
   type word_arr_t is array (0 to 1, 0 to N_WORDS-1) of std_logic_vector(BLOCK_SIZE + MAX_LENGTH - 2 downto 0);
   type shift_arr_t is array (0 to N_WORDS-1) of integer range 0 to BLOCK_SIZE-1;
   type n_blocks_arr_t is array (0 to 1, 0 to N_WORDS-1) of integer range 0 to MAX_BLOCKS_PER_WORD;
-  type full_blocks_t is array (0 to MAX_BLOCKS - 1) of std_logic_vector(BLOCK_SIZE-1 downto 0);
+  type full_blocks_t is array (0 to MAX_BLOCKS-1) of std_logic_vector(BLOCK_SIZE-1 downto 0);
 
   signal shift_arr    : shift_arr_t;
   signal n_blocks_arr : n_blocks_arr_t;
@@ -63,7 +63,7 @@ architecture rtl of combiner is
   signal from_fifo_count  : integer range 0 to MAX_BLOCKS;
   signal from_fifo_blocks : full_blocks_t;
 
-  signal counter    : integer range 0 to MAX_BLOCKS;
+  signal counter    : integer range 0 to MAX_BLOCKS-1;
 begin
 
 
@@ -216,15 +216,13 @@ begin
       else
         if (fifo_rden = '1') then
           from_fifo_valid <= '1';
+          counter <= 0;
         elsif (counter = from_fifo_count - 1) then
           from_fifo_valid <= '0';
-        end if;
-
-        if (fifo_rden = '1') then
-          counter <= 0;
         elsif (from_fifo_valid = '1') then
           counter <= counter + 1;
         end if;
+
       end if;
     end if;
   end process;
