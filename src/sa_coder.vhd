@@ -25,7 +25,7 @@ entity sa_encoder is
     out_valid    : out std_logic;
     out_last     : out std_logic;
     out_data     : out std_logic_vector(UMAX + D-1 downto 0);
-    out_num_bits : out integer range 0 to UMAX + D
+    out_num_bits : out unsigned(len2bits(UMAX + D)-1 downto 0)
     );
 end sa_encoder;
 
@@ -223,5 +223,5 @@ begin
   out_valid    <= valid_regs(4);
   out_last     <= ctrl_regs(4).last;
   out_data     <= code_word;
-  out_num_bits <= code_num_bits;
+  out_num_bits <= to_unsigned(code_num_bits, len2bits(UMAX + D));
 end rtl;

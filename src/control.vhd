@@ -30,9 +30,10 @@ entity control is
     clk     : in std_logic;
     aresetn : in std_logic;
 
-    tick            : in  std_logic;
-    w_upd_handshake : in  std_logic;
-    ready           : out std_logic;
+    tick               : in  std_logic;
+    w_upd_handshake    : in  std_logic;
+    ready              : out std_logic;
+    out_over_threshold : in  std_logic;
 
     out_ctrl : out ctrl_t;
     out_z    : out integer range 0 to NZ - 1
@@ -73,11 +74,11 @@ begin
       end if;
     end process;
 
-    ready <= '1' when count < NZ else '0';
+    ready <= '1' when count < NZ and out_over_threshold = '0' else '0';
   end generate g_pipe_ctrl;
 
   g_nopipe_ctrl : if (not C_INCL_PIPE_CTRL) generate
-    ready <= '1';
+    ready <= not out_over_threshold;
   end generate g_nopipe_ctrl;
 
   -- Component counting logic

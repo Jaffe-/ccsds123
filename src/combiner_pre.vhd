@@ -6,29 +6,34 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.all;
 use ieee.math_real.all;
+use work.common.all;
 
 library xpm;
 use xpm.vcomponents.all;
 
 entity combiner is
   generic (
-    BLOCK_SIZE    : integer := 64;
-    N_WORDS       : integer := 4;
-    MAX_LENGTH    : integer := 30;
-    LITTLE_ENDIAN : boolean := false
+    BLOCK_SIZE     : integer := 64;
+    N_WORDS        : integer := 4;
+    MAX_LENGTH     : integer := 30;
+    LITTLE_ENDIAN  : boolean := false;
+    FIFO_DEPTH     : integer := 256;
+    FIFO_THRESHOLD : integer := 30
     );
   port (
     clk     : in std_logic;
     aresetn : in std_logic;
 
     in_words   : in std_logic_vector(N_WORDS * MAX_LENGTH - 1 downto 0);
-    in_lengths : in unsigned(N_WORDS * integer(ceil(log2(real(MAX_LENGTH)))) - 1 downto 0);
+    in_lengths : in unsigned(N_WORDS * len2bits(MAX_LENGTH) - 1 downto 0);
     in_valid   : in std_logic;
     in_last    : in std_logic;
 
     out_data  : out std_logic_vector(BLOCK_SIZE-1 downto 0);
     out_valid : out std_logic;
-    out_last  : out std_logic
+    out_last  : out std_logic;
+
+    over_threshold : out std_logic
     );
 end combiner;
 
@@ -66,7 +71,6 @@ architecture rtl of combiner is
 
   signal counter : integer range 0 to MAX_BLOCKS-1;
 begin
-
 
   process (clk)
     constant SUM_SIZE           : integer := integer(ceil(log2(real(BLOCK_SIZE + MAX_LENGTH))));
@@ -165,14 +169,14 @@ begin
 
       FIFO_MEMORY_TYPE    => "auto",  --string; "auto", "block", "distributed", or "ultra" ;
       ECC_MODE            => "no_ecc",  --string; "no_ecc" or "en_ecc";
-      FIFO_WRITE_DEPTH    => 256,       --positive integer
-      WRITE_DATA_WIDTH    => FIFO_SIZE,  --positive integer
+      FIFO_WRITE_DEPTH    => FIFO_DEPTH,      --positive integer
+      WRITE_DATA_WIDTH    => FIFO_SIZE,       --positive integer
       WR_DATA_COUNT_WIDTH => 9,         --positive integer
-      PROG_FULL_THRESH    => 10,        --positive integer
+      PROG_FULL_THRESH    => FIFO_THRESHOLD,  --positive integer
       FULL_RESET_VALUE    => 0,         --positive integer; 0 or 1;
       READ_MODE           => "std",     --string; "std" or "fwft";
       FIFO_READ_LATENCY   => 1,         --positive integer;
-      READ_DATA_WIDTH     => FIFO_SIZE,  --positive integer
+      READ_DATA_WIDTH     => FIFO_SIZE,       --positive integer
       RD_DATA_COUNT_WIDTH => 9,         --positive integer
       PROG_EMPTY_THRESH   => 10,        --positive integer
       DOUT_RESET_VALUE    => "0",       --string
@@ -191,7 +195,7 @@ begin
       empty         => fifo_empty,
       underflow     => open,
       rd_rst_busy   => open,
-      prog_full     => open,
+      prog_full     => over_threshold,
       wr_data_count => open,
       prog_empty    => open,
       rd_data_count => open,

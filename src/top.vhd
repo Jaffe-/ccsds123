@@ -1,5 +1,5 @@
 library IEEE;
-use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.STD_LOGIC_1164.all;
 use IEEE.NUMERIC_STD.all;
 use work.common.all;
 
@@ -107,10 +107,12 @@ architecture rtl of ccsds123_top is
   signal from_encoder_valid    : std_logic;
   signal from_encoder_last     : std_logic;
   signal from_encoder_data     : std_logic_vector(UMAX + D-1 downto 0);
-  signal from_encoder_num_bits : integer range 0 to UMAX + D;
+  signal from_encoder_num_bits : unsigned(len2bits(UMAX + D) - 1 downto 0);
+
+  signal combiner_over_threshold : std_logic;
 begin
-  in_handshake  <= in_tvalid and in_ready;
-  in_tready <= in_ready;
+  in_handshake <= in_tvalid and in_ready;
+  in_tready    <= in_ready;
 
   i_control : entity work.control
     generic map (
@@ -126,9 +128,10 @@ begin
       clk     => clk,
       aresetn => aresetn,
 
-      tick            => in_handshake,
-      w_upd_handshake => from_w_update_valid,
-      ready           => in_ready,
+      tick               => in_handshake,
+      w_upd_handshake    => from_w_update_valid,
+      ready              => in_ready,
+      out_over_threshold => combiner_over_threshold,
 
       out_ctrl => from_ctrl_ctrl,
       out_z    => from_ctrl_z);
@@ -389,21 +392,24 @@ begin
 
   i_packer : entity work.combiner
     generic map (
-      BLOCK_SIZE => 64,
-      N_WORDS => 1,
-      MAX_LENGTH => UMAX + D)
+      BLOCK_SIZE    => 64,
+      N_WORDS       => 1,
+      MAX_LENGTH    => UMAX + D,
+      LITTLE_ENDIAN => LITTLE_ENDIAN)
     port map (
-      clk => clk,
+      clk     => clk,
       aresetn => aresetn,
 
-      in_words => from_encoder_data,
-      in_lengths => to_unsigned(from_encoder_num_bits, 5),
-      in_valid => from_encoder_valid,
-      in_last => from_encoder_last,
+      in_words   => from_encoder_data,
+      in_lengths => from_encoder_num_bits,
+      in_valid   => from_encoder_valid,
+      in_last    => from_encoder_last,
 
-      out_data => out_tdata,
+      out_data  => out_tdata,
       out_valid => out_tvalid,
-      out_last => out_tlast
+      out_last  => out_tlast,
+
+      over_threshold => combiner_over_threshold
       );
 
 end rtl;
