@@ -36,6 +36,7 @@ entity pipeline_top is
 
     out_central_diff       : out signed(D+2 downto 0);
     out_central_diff_valid : out std_logic;
+    out_central_diff_zb    : out integer range 0 to NZ/PIPELINES-1;
     in_prev_central_diffs  : in  signed(P*(D+3)-1 downto 0);
 
     out_data     : out std_logic_vector(UMAX + D - 1 downto 0);
@@ -194,6 +195,7 @@ begin
   end generate g_local_diff_reduced;
 
   out_central_diff_valid <= from_local_diff_valid;
+  out_central_diff_zb    <= blk_idx(from_local_diff_z);
 
   g_add_central_diffs : if (P > 0) generate
     local_diffs(P*(D+3)-1 downto 0) <= in_prev_central_diffs;
