@@ -5,19 +5,20 @@ use work.common.all;
 
 entity local_diff_store is
   generic (
-    NZ : integer;
-    P  : integer;
-    D  : integer
+    PIPELINES : integer;
+    NZB       : integer;
+    P         : integer;
+    D         : integer
     );
   port (
     clk     : in std_logic;
     aresetn : in std_logic;
 
     wr            : in std_logic;
-    wr_local_diff : in signed(D+2 downto 0);
-    z             : in integer range 0 to NZ-1;
+    wr_local_diff : in signed(PIPELINES*(D+3)-1 downto 0);
+    zb            : in integer range 0 to NZB-1;
 
-    local_diffs : out signed((D+3)*P-1 downto 0)
+    local_diffs : out signed(P*(D+3)-1 downto 0)
     );
 end local_diff_store;
 
@@ -31,11 +32,15 @@ begin
         local_diffs_reg <= (others => '0');
       else
         if (wr = '1') then
-          local_diffs_reg(D+2 downto 0) <= wr_local_diff;
-          if (z = NZ-1) then
-            local_diffs_reg(local_diffs_reg'high downto 0) <= (others => '0');
+          if (zb = NZB-1) then
+            local_diffs_reg <= (others => '0');
           else
-            local_diffs_reg(local_diffs_reg'high downto D+3) <= local_diffs_reg(local_diffs_reg'high-(D+3) downto 0);
+            if (PIPELINES < P) then
+              local_diffs_reg(PIPELINES*(D+3)-1 downto 0)                  <= wr_local_diff;
+              local_diffs_reg(local_diffs_reg'high downto PIPELINES*(D+3)) <= local_diffs_reg(local_diffs_reg'high-PIPELINES*(D+3) downto 0);
+            else
+              local_diffs_reg <= wr_local_diff(P*(D+3)-1 downto 0);
+            end if;
           end if;
         end if;
       end if;

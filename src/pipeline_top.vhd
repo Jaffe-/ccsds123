@@ -31,7 +31,12 @@ entity pipeline_top is
     in_data  : in std_logic_vector(D-1 downto 0);
     in_valid : in std_logic;
 
+    -- Intermediate signals
     w_update_wr : out std_logic;
+
+    out_central_diff       : out signed(D+2 downto 0);
+    out_central_diff_valid : out std_logic;
+    in_prev_central_diffs  : in  signed(P*(D+3)-1 downto 0);
 
     out_data     : out std_logic_vector(UMAX + D - 1 downto 0);
     out_num_bits : out unsigned(len2bits(UMAX + D)-1 downto 0);
@@ -50,6 +55,11 @@ architecture rtl of pipeline_top is
     end if;
   end function CZ;
 
+  function blk_idx(z : integer) return integer is
+  begin
+    return z / PIPELINES;
+  end function blk_idx;
+
   subtype z_type is integer range 0 to NZ-1;
   subtype sample_type is signed(D-1 downto 0);
   subtype locsum_type is signed(D+2 downto 0);
@@ -66,7 +76,6 @@ architecture rtl of pipeline_top is
   signal from_local_diff_z      : z_type;
   signal from_local_diff_s      : sample_type;
   signal from_local_diff_locsum : locsum_type;
-  signal d_c                    : signed(D+2 downto 0);
   signal d_n                    : signed(D+2 downto 0);
   signal d_nw                   : signed(D+2 downto 0);
   signal d_w                    : signed(D+2 downto 0);
@@ -107,7 +116,7 @@ begin
     generic map (
       D  => D,
       NX => NX,
-      NZ => NZ)
+      NZ => NZ/PIPELINES)
     port map (
       clk     => clk,
       aresetn => aresetn,
@@ -142,7 +151,7 @@ begin
         in_z     => in_z,
 
         local_sum => from_local_diff_locsum,
-        d_c       => d_c,
+        d_c       => out_central_diff,
         d_n       => local_diffs((D+3)*(P+3)-1 downto (D+3)*(P+2)),
         d_w       => local_diffs((D+3)*(P+2)-1 downto (D+3)*(P+1)),
         d_nw      => local_diffs((D+3)*(P+1)-1 downto (D+3)*P),
@@ -174,7 +183,7 @@ begin
         in_z     => in_z,
 
         local_sum => from_local_diff_locsum,
-        d_c       => d_c,
+        d_c       => out_central_diff,
         d_n       => open,
         d_w       => open,
         d_nw      => open,
@@ -184,39 +193,28 @@ begin
         out_s     => from_local_diff_s);
   end generate g_local_diff_reduced;
 
-  g_local_diff_store : if (P > 0) generate
-    i_local_diff_store : entity work.local_diff_store
-      generic map (
-        NZ => NZ,
-        P  => P,
-        D  => D)
-      port map (
-        clk     => clk,
-        aresetn => aresetn,
+  out_central_diff_valid <= from_local_diff_valid;
 
-        wr            => from_local_diff_valid,
-        wr_local_diff => d_c,
-        z             => from_local_diff_z,
-
-        local_diffs => local_diffs((D+3)*P-1 downto 0));
-  end generate g_local_diff_store;
+  g_add_central_diffs : if (P > 0) generate
+    local_diffs(P*(D+3)-1 downto 0) <= in_prev_central_diffs;
+  end generate g_add_central_diffs;
 
   i_weight_store : entity work.weight_store
     generic map (
       DELAY => 3,
       OMEGA => OMEGA,
       CZ    => CZ,
-      NZ    => NZ)
+      N     => NZ/PIPELINES)
     port map (
       clk     => clk,
       aresetn => aresetn,
 
       wr        => from_w_update_valid,
-      wr_z      => from_w_update_z,
+      wr_z      => blk_idx(from_w_update_z),
       wr_weight => from_w_update_weights,
 
       rd        => in_valid,
-      rd_z      => in_z,
+      rd_z      => blk_idx(in_z),
       rd_weight => weights);
 
   i_dot : entity work.dot_product
@@ -333,7 +331,7 @@ begin
 
   i_sa_encoder : entity work.sa_encoder
     generic map (
-      NZ            => NZ,
+      NZB           => NZ/PIPELINES,
       D             => D,
       UMAX          => UMAX,
       KZ_PRIME      => KZ_PRIME,
@@ -345,7 +343,7 @@ begin
 
       in_valid    => from_res_mapper_valid,
       in_ctrl     => from_res_mapper_ctrl,
-      in_z        => from_res_mapper_z,
+      in_zb       => blk_idx(from_res_mapper_z),
       in_residual => from_res_mapper_delta,
 
       out_valid    => out_valid,

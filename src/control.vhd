@@ -16,14 +16,15 @@ use work.common.all;
 
 entity control is
   generic (
-    V_MIN    : integer;
-    V_MAX    : integer;
-    TINC_LOG : integer;
-    NX       : integer;
-    NY       : integer;
-    NZ       : integer;
-    CZ       : integer;
-    D        : integer
+    PIPELINES : integer;
+    V_MIN     : integer;
+    V_MAX     : integer;
+    TINC_LOG  : integer;
+    NX        : integer;
+    NY        : integer;
+    NZ        : integer;
+    CZ        : integer;
+    D         : integer
     );
 
   port (
@@ -36,7 +37,7 @@ entity control is
     out_over_threshold : in  std_logic;
 
     out_ctrl : out ctrl_t;
-    out_z    : out integer range 0 to NZ - 1
+    out_z    : out integer range 0 to NZ/PIPELINES - 1
     );
 
 end control;
@@ -92,7 +93,7 @@ begin
         t <= 0;
       else
         if (tick = '1') then
-          if (z = Nz - 1) then
+          if (z = Nz/PIPELINES - 1) then
             z <= 0;
             t <= wrap_inc(t, NX*NY-1);
             if (x = Nx - 1) then
@@ -133,7 +134,7 @@ begin
       first_pix := '1';
     elsif (x = NX - 1) then
       last_pix := '1';
-      if (y = NY - 1 and z = NZ - 1) then
+      if (y = NY - 1 and z = NZ/PIPELINES - 1) then
         last := tick;
       end if;
     end if;

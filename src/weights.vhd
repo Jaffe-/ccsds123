@@ -7,7 +7,7 @@ entity weight_store is
     DELAY : integer := 1;
     OMEGA : integer := 8;
     CZ    : integer := 4;
-    NZ    : integer := 100
+    N     : integer := 100
     );
 
   port (
@@ -15,18 +15,18 @@ entity weight_store is
     aresetn : in std_logic;
 
     wr        : in std_logic;
-    wr_z      : in integer range 0 to NZ-1;
+    wr_z      : in integer range 0 to N-1;
     wr_weight : in signed(CZ*(OMEGA+3)-1 downto 0);
 
     rd        : in  std_logic;
-    rd_z      : in  integer range 0 to NZ-1;
+    rd_z      : in  integer range 0 to N-1;
     rd_weight : out signed(CZ*(OMEGA+3)-1 downto 0)
     );
 end weight_store;
 
 architecture rtl of weight_store is
-  type weight_vec_t is array (0 to NZ-1) of signed(CZ*(OMEGA+3)-1 downto 0);
-  signal weights         : weight_vec_t := (others => (others => '0'));
+  type weight_vec_t is array (0 to N-1) of signed(CZ*(OMEGA+3)-1 downto 0);
+  signal weights : weight_vec_t := (others => (others => '0'));
 
   type delay_stages_t is array (0 to DELAY-1) of signed(CZ*(OMEGA+3)-1 downto 0);
   signal delay_stages : delay_stages_t;

@@ -5,7 +5,7 @@ use work.common.all;
 
 entity sa_encoder is
   generic (
-    NZ            : integer;
+    NZB           : integer;
     D             : integer;
     UMAX          : integer;
     KZ_PRIME      : integer;
@@ -19,7 +19,7 @@ entity sa_encoder is
 
     in_valid    : in std_logic;
     in_ctrl     : in ctrl_t;
-    in_z        : in integer range 0 to NZ-1;
+    in_zb       : in integer range 0 to NZB-1;
     in_residual : in unsigned(D-1 downto 0);
 
     out_valid    : out std_logic;
@@ -35,7 +35,7 @@ architecture rtl of sa_encoder is
   type counter_arr_t is array(0 to 1) of integer range 0 to 2**COUNTER_SIZE-1;
   signal counter_regs : counter_arr_t;
 
-  type z_arr_t is array (0 to 1) of integer range 0 to NZ-1;
+  type z_arr_t is array (0 to 1) of integer range 0 to NZB-1;
   signal z_regs : z_arr_t;
 
   type residual_arr_t is array (0 to 3) of std_logic_vector(D-1 downto 0);
@@ -61,10 +61,10 @@ architecture rtl of sa_encoder is
   subtype accumulator_t is integer range 0 to 2**(D+COUNTER_SIZE)-1;
   signal accumulator_rd_data : accumulator_t;
   signal accumulator_wr      : std_logic;
-  signal accumulator_wr_z    : integer range 0 to NZ-1;
+  signal accumulator_wr_z    : integer range 0 to NZB-1;
   signal accumulator_wr_data : accumulator_t;
 
-  type accumulator_arr_t is array (0 to NZ-1) of accumulator_t;
+  type accumulator_arr_t is array (0 to NZB-1) of accumulator_t;
   signal accumulators : accumulator_arr_t := (others => 0);
 begin
 
@@ -83,7 +83,7 @@ begin
   begin
     if (rising_edge(clk)) then
       if (in_valid = '1') then
-        accumulator_rd_data <= accumulators(in_z);
+        accumulator_rd_data <= accumulators(in_zb);
       end if;
     end if;
   end process;
@@ -99,7 +99,7 @@ begin
           if (in_ctrl.first_in_line = '1' and in_ctrl.first_line = '1') then
             counter <= 2**INITIAL_COUNT;
           else
-            if (in_z = NZ-1) then
+            if (in_zb = NZB-1) then
               if (counter < 2**COUNTER_SIZE-1) then
                 counter <= counter + 1;
               else
@@ -141,7 +141,7 @@ begin
 
         counter_regs(0)  <= counter;
         valid_regs(0)    <= in_valid;
-        z_regs(0)        <= in_z;
+        z_regs(0)        <= in_zb;
         ctrl_regs(0)     <= in_ctrl;
         residual_regs(0) <= std_logic_vector(in_residual);
 

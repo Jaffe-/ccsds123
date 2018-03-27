@@ -53,8 +53,8 @@ architecture rtl of ccsds123_top is
   signal in_handshake : std_logic;
   signal in_ready     : std_logic;
 
-  signal from_ctrl_ctrl : ctrl_t;
-  signal from_ctrl_z    : integer range 0 to NZ-1;
+  signal from_ctrl_ctrl    : ctrl_t;
+  signal from_ctrl_z_block : integer range 0 to NZ/PIPELINES-1;
 
   signal w_update_wr : std_logic_vector(PIPELINES-1 downto 0);
 
@@ -64,20 +64,27 @@ architecture rtl of ccsds123_top is
   signal pipeline_out_num_bits : unsigned(PIPELINES*len2bits(UMAX + D) - 1 downto 0);
 
   signal combiner_over_threshold : std_logic;
+
+  type central_diff_arr_t is array (0 to PIPELINES-1) of signed(D+2 downto 0);
+  signal central_diff_valid    : std_logic_vector(PIPELINES-1 downto 0);
+  signal central_diffs_vec     : signed(PIPELINES*(D+3)-1 downto 0);
+  signal central_diff          : central_diff_arr_t;
+  signal from_local_diff_store : signed(P*(D+3)-1 downto 0);
 begin
   in_handshake <= in_tvalid and in_ready;
   in_tready    <= in_ready;
 
   i_control : entity work.control
     generic map (
-      V_MIN    => V_MIN,
-      V_MAX    => V_MAX,
-      TINC_LOG => TINC_LOG,
-      NX       => NX,
-      NY       => NY,
-      NZ       => NZ,
-      CZ       => CZ,
-      D        => D)
+      PIPELINES => PIPELINES,
+      V_MIN     => V_MIN,
+      V_MAX     => V_MAX,
+      TINC_LOG  => TINC_LOG,
+      NX        => NX,
+      NY        => NY,
+      NZ        => NZ,
+      CZ        => CZ,
+      D         => D)
     port map (
       clk     => clk,
       aresetn => aresetn,
@@ -88,9 +95,48 @@ begin
       out_over_threshold => combiner_over_threshold,
 
       out_ctrl => from_ctrl_ctrl,
-      out_z    => from_ctrl_z);
+      out_z    => from_ctrl_z_block);
+
+
+  i_local_diff_store : entity work.local_diff_store
+    generic map (
+      PIPELINES => PIPELINES,
+      NZB       => NZ/PIPELINES,
+      P         => P,
+      D         => D)
+    port map (
+      clk     => clk,
+      aresetn => aresetn,
+
+      wr            => central_diff_valid(0),
+      wr_local_diff => central_diffs_vec,
+      zb            => from_ctrl_z_block,
+
+      local_diffs => from_local_diff_store);
 
   g_pipelines : for i in 0 to PIPELINES-1 generate
+    signal from_ctrl_z        : integer range 0 to NZ-1;
+    signal prev_central_diffs : signed(P*(D+3)-1 downto 0);
+  begin
+    from_ctrl_z <= PIPELINES * from_ctrl_z_block + i;
+
+    -- Order in central difference store must be from most recent sample at
+    -- index 0, so reorder it:
+    central_diffs_vec((PIPELINES-i)*(D+3)-1 downto (PIPELINES-i-1)*(D+3)) <= central_diff(i);
+
+    process (central_diff, from_local_diff_store)
+    begin
+      for j in 0 to P-1 loop
+        -- If j < i then we're going to take central differences from the other
+        -- pipelines. Otherwise we must take from the local difference store.
+        if (j < i) then
+          prev_central_diffs((j+1)*(D+3)-1 downto j*(D+3)) <= central_diff(i-j-1);
+        else
+          prev_central_diffs((j+1)*(D+3)-1 downto j*(D+3)) <= from_local_diff_store((j-i+1)*(D+3)-1 downto (j-i)*(D+3));
+        end if;
+      end loop;
+    end process;
+
     i_pipeline : entity work.pipeline_top
       generic map (
         PIPELINES     => PIPELINES,
@@ -120,6 +166,10 @@ begin
         in_valid => in_handshake,
 
         w_update_wr => w_update_wr(i),
+
+        out_central_diff       => central_diff(i),
+        out_central_diff_valid => central_diff_valid(i),
+        in_prev_central_diffs  => prev_central_diffs,
 
         out_data     => pipeline_out_data((i+1)*(UMAX+D)-1 downto i*(UMAX+D)),
         out_num_bits => pipeline_out_num_bits((i+1)*len2bits(UMAX+D)-1 downto i*len2bits(UMAX+D)),
