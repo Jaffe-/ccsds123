@@ -324,15 +324,16 @@ begin
 
   i_weight_update : entity work.weight_update
     generic map (
-      NX    => NX,
-      NY    => NY,
-      NZ    => NZ,
-      OMEGA => OMEGA,
-      D     => D,
-      R     => R,
-      CZ    => CZ,
-      V_MIN => V_MIN,
-      V_MAX => V_MAX)
+      REDUCED => REDUCED,
+      NX      => NX,
+      NY      => NY,
+      NZ      => NZ,
+      OMEGA   => OMEGA,
+      D       => D,
+      R       => R,
+      CZ      => CZ,
+      V_MIN   => V_MIN,
+      V_MAX   => V_MAX)
     port map (
       clk     => clk,
       aresetn => aresetn,

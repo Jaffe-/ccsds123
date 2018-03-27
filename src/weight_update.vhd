@@ -6,15 +6,16 @@ use work.common.all;
 
 entity weight_update is
   generic (
-    NX    : integer;
-    NY    : integer;
-    NZ    : integer;
-    OMEGA : integer;
-    D     : integer;
-    R     : integer;
-    V_MIN : integer;
-    V_MAX : integer;
-    CZ    : integer
+    REDUCED : boolean;
+    NX      : integer;
+    NY      : integer;
+    NZ      : integer;
+    OMEGA   : integer;
+    D       : integer;
+    R       : integer;
+    V_MIN   : integer;
+    V_MAX   : integer;
+    CZ      : integer
     );
   port (
     clk     : in std_logic;
@@ -35,7 +36,7 @@ entity weight_update is
 end weight_update;
 
 architecture rtl of weight_update is
-  signal sgn_error      : std_logic;
+  signal sgn_error : std_logic;
 
   type diff_vec_t is array (0 to CZ-1) of signed(D+2 downto 0);
   type weight_vec_t is array(0 to CZ-1) of signed(OMEGA+2 downto 0);
@@ -62,14 +63,23 @@ architecture rtl of weight_update is
   -- Function for initializing weights at t = 0
   function init_weight_vec return weight_vec_t is
     variable weight_vec : weight_vec_t;
+    variable P          : integer;
   begin
+    if (REDUCED) then
+      P := CZ;
+    else
+      P := CZ - 3;
+    end if;
+
     weight_vec(0) := to_signed(7 * (2**OMEGA / 8), OMEGA+3);
-    for i in 1 to CZ-4 loop
+    for i in 1 to P-1 loop
       weight_vec(i) := to_signed(to_integer(weight_vec(i-1) / 8), OMEGA+3);
     end loop;
-    weight_vec(CZ-3) := to_signed(0, OMEGA+3);
-    weight_vec(CZ-2) := to_signed(0, OMEGA+3);
-    weight_vec(CZ-1) := to_signed(0, OMEGA+3);
+    if (not REDUCED) then
+      weight_vec(CZ-3) := to_signed(0, OMEGA+3);
+      weight_vec(CZ-2) := to_signed(0, OMEGA+3);
+      weight_vec(CZ-1) := to_signed(0, OMEGA+3);
+    end if;
     return weight_vec;
   end function init_weight_vec;
 
@@ -87,20 +97,20 @@ begin
   begin
     if (rising_edge(clk)) then
       if (aresetn = '0') then
-        sgn_error      <= '0';
-        diff_regs      <= (others => (others => '0'));
-        weight_regs    <= (others => (others => (others => '0')));
-        valid_regs     <= (others => '0');
-        z_regs         <= (others => 0);
-        ctrl_regs      <= (others => ('0', '0', '0', '0', 0));
+        sgn_error   <= '0';
+        diff_regs   <= (others => (others => '0'));
+        weight_regs <= (others => (others => (others => '0')));
+        valid_regs  <= (others => '0');
+        z_regs      <= (others => 0);
+        ctrl_regs   <= (others => ('0', '0', '0', '0', 0));
       else
         --------------------------------------------------------------------------------
         -- Stage 1 - calculate scaling exponent and prediction error
         --------------------------------------------------------------------------------
-        weight_regs(0)     <= weight_vec;
-        valid_regs(0)      <= in_valid;
-        z_regs(0)          <= in_z;
-        ctrl_regs(0)       <= in_ctrl;
+        weight_regs(0) <= weight_vec;
+        valid_regs(0)  <= in_valid;
+        z_regs(0)      <= in_z;
+        ctrl_regs(0)   <= in_ctrl;
 
         -- Compute sgn(e_z(t)) * U(t) for each component
         if (2*to_integer(in_s) >= to_integer(in_pred_s)) then
