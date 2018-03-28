@@ -72,6 +72,8 @@ architecture rtl of ccsds123_top is
   signal central_diffs_vec     : signed(PIPELINES*(D+3)-1 downto 0);
   signal central_diff          : central_diff_arr_t;
   signal from_local_diff_store : signed(P*(D+3)-1 downto 0);
+
+  signal prev_s_reg : std_logic_vector(D-1 downto 0);
 begin
   in_handshake <= in_tvalid and in_ready;
   in_tready    <= in_ready;
@@ -116,9 +118,21 @@ begin
 
       local_diffs => from_local_diff_store);
 
+  process (clk)
+  begin
+    if (rising_edge(clk)) then
+      if (aresetn = '0') then
+        prev_s_reg <= (others => '0');
+      else
+        prev_s_reg <= in_tdata(PIPELINES*D-1 downto (PIPELINES-1)*D);
+      end if;
+    end if;
+  end process;
+
   g_pipelines : for i in 0 to PIPELINES-1 generate
     signal from_ctrl_z        : integer range 0 to NZ-1;
     signal prev_central_diffs : signed(P*(D+3)-1 downto 0);
+    signal prev_s             : std_logic_vector(D-1 downto 0);
   begin
     from_ctrl_z <= PIPELINES * from_ctrl_z_block + i;
 
@@ -126,7 +140,7 @@ begin
     -- index 0, so reorder it:
     central_diffs_vec((PIPELINES-i)*(D+3)-1 downto (PIPELINES-i-1)*(D+3)) <= central_diff(i);
 
-    process (central_diff, from_local_diff_store)
+    process (central_diff, from_local_diff_store, prev_s_reg, in_tdata)
     begin
       for j in 0 to P-1 loop
         -- If j < i then we're going to take central differences from the other
@@ -137,6 +151,12 @@ begin
           prev_central_diffs((j+1)*(D+3)-1 downto j*(D+3)) <= from_local_diff_store((j-i+1)*(D+3)-1 downto (j-i)*(D+3));
         end if;
       end loop;
+
+      if (i = 0) then
+        prev_s <= prev_s_reg;
+      else
+        prev_s <= in_tdata(i*D-1 downto (i-1)*D);
+      end if;
     end process;
 
     i_pipeline : entity work.pipeline_top
@@ -162,10 +182,11 @@ begin
         clk     => clk,
         aresetn => aresetn,
 
-        in_ctrl  => from_ctrl_ctrl,
-        in_z     => from_ctrl_z,
-        in_data  => in_tdata((i+1)*D-1 downto i*D),
-        in_valid => in_handshake,
+        in_ctrl        => from_ctrl_ctrl,
+        in_z           => from_ctrl_z,
+        in_sample      => in_tdata((i+1)*D-1 downto i*D),
+        in_prev_sample => prev_s,
+        in_valid       => in_handshake,
 
         w_update_wr => w_update_wr(i),
 

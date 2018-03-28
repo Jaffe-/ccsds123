@@ -26,10 +26,11 @@ entity pipeline_top is
     clk     : in std_logic;
     aresetn : in std_logic;
 
-    in_ctrl  : in ctrl_t;
-    in_z     : in integer range 0 to NZ-1;
-    in_data  : in std_logic_vector(D-1 downto 0);
-    in_valid : in std_logic;
+    in_ctrl        : in ctrl_t;
+    in_z           : in integer range 0 to NZ-1;
+    in_sample      : in std_logic_vector(D-1 downto 0);
+    in_prev_sample : in std_logic_vector(D-1 downto 0);
+    in_valid       : in std_logic;
 
     -- Intermediate signals
     w_update_wr : out std_logic;
@@ -76,6 +77,7 @@ architecture rtl of pipeline_top is
   signal from_local_diff_valid  : std_logic;
   signal from_local_diff_z      : z_type;
   signal from_local_diff_s      : sample_type;
+  signal from_local_diff_prev_s : sample_type;
   signal from_local_diff_locsum : locsum_type;
   signal d_n                    : signed(D+2 downto 0);
   signal d_nw                   : signed(D+2 downto 0);
@@ -87,6 +89,7 @@ architecture rtl of pipeline_top is
   signal from_dot_valid   : std_logic;
   signal from_dot_ctrl    : ctrl_t;
   signal from_dot_s       : sample_type;
+  signal from_dot_prev_s  : sample_type;
   signal from_dot_locsum  : locsum_type;
   signal from_dot_z       : z_type;
   signal from_dot_weights : weights_type;
@@ -122,7 +125,7 @@ begin
       clk     => clk,
       aresetn => aresetn,
 
-      in_sample => in_data,
+      in_sample => in_sample,
       in_valid  => in_valid,
 
       out_s_ne => s_ne,
@@ -142,24 +145,26 @@ begin
         clk     => clk,
         aresetn => aresetn,
 
-        s_cur    => signed(in_data),
-        s_ne     => signed(s_ne),
-        s_n      => signed(s_n),
-        s_nw     => signed(s_nw),
-        s_w      => signed(s_w),
-        in_valid => in_valid,
-        in_ctrl  => in_ctrl,
-        in_z     => in_z,
+        s_cur     => signed(in_sample),
+        s_ne      => signed(s_ne),
+        s_n       => signed(s_n),
+        s_nw      => signed(s_nw),
+        s_w       => signed(s_w),
+        in_prev_s => signed(in_prev_sample),
+        in_valid  => in_valid,
+        in_ctrl   => in_ctrl,
+        in_z      => in_z,
 
-        local_sum => from_local_diff_locsum,
-        d_c       => out_central_diff,
-        d_n       => local_diffs((D+3)*(P+3)-1 downto (D+3)*(P+2)),
-        d_w       => local_diffs((D+3)*(P+2)-1 downto (D+3)*(P+1)),
-        d_nw      => local_diffs((D+3)*(P+1)-1 downto (D+3)*P),
-        out_valid => from_local_diff_valid,
-        out_ctrl  => from_local_diff_ctrl,
-        out_z     => from_local_diff_z,
-        out_s     => from_local_diff_s);
+        local_sum  => from_local_diff_locsum,
+        d_c        => out_central_diff,
+        d_n        => local_diffs((D+3)*(P+3)-1 downto (D+3)*(P+2)),
+        d_w        => local_diffs((D+3)*(P+2)-1 downto (D+3)*(P+1)),
+        d_nw       => local_diffs((D+3)*(P+1)-1 downto (D+3)*P),
+        out_valid  => from_local_diff_valid,
+        out_ctrl   => from_local_diff_ctrl,
+        out_z      => from_local_diff_z,
+        out_s      => from_local_diff_s,
+        out_prev_s => from_local_diff_prev_s);
   end generate g_local_diff_full;
 
   g_local_diff_reduced : if (REDUCED) generate
@@ -174,24 +179,26 @@ begin
         clk     => clk,
         aresetn => aresetn,
 
-        s_cur    => signed(in_data),
-        s_ne     => signed(s_ne),
-        s_n      => signed(s_n),
-        s_nw     => signed(s_nw),
-        s_w      => signed(s_w),
-        in_valid => in_valid,
-        in_ctrl  => in_ctrl,
-        in_z     => in_z,
+        s_cur     => signed(in_sample),
+        s_ne      => signed(s_ne),
+        s_n       => signed(s_n),
+        s_nw      => signed(s_nw),
+        s_w       => signed(s_w),
+        in_prev_s => signed(in_prev_sample),
+        in_valid  => in_valid,
+        in_ctrl   => in_ctrl,
+        in_z      => in_z,
 
-        local_sum => from_local_diff_locsum,
-        d_c       => out_central_diff,
-        d_n       => open,
-        d_w       => open,
-        d_nw      => open,
-        out_valid => from_local_diff_valid,
-        out_ctrl  => from_local_diff_ctrl,
-        out_z     => from_local_diff_z,
-        out_s     => from_local_diff_s);
+        local_sum  => from_local_diff_locsum,
+        d_c        => out_central_diff,
+        d_n        => open,
+        d_w        => open,
+        d_nw       => open,
+        out_valid  => from_local_diff_valid,
+        out_ctrl   => from_local_diff_ctrl,
+        out_z      => from_local_diff_z,
+        out_s      => from_local_diff_s,
+        out_prev_s => from_local_diff_prev_s);
   end generate g_local_diff_reduced;
 
   out_central_diff_valid <= from_local_diff_valid;
@@ -243,6 +250,7 @@ begin
       in_locsum  => from_local_diff_locsum,
       in_ctrl    => from_local_diff_ctrl,
       in_z       => from_local_diff_z,
+      in_prev_s  => from_local_diff_prev_s,
       in_s       => from_local_diff_s,
       in_weights => weights,
       in_diffs   => local_diffs,
@@ -251,6 +259,7 @@ begin
       out_ctrl    => from_dot_ctrl,
       out_z       => from_dot_z,
       out_s       => from_dot_s,
+      out_prev_s  => from_dot_prev_s,
       out_weights => from_dot_weights,
       out_diffs   => from_dot_diffs);
 
@@ -272,6 +281,7 @@ begin
 
       in_locsum  => from_dot_locsum,
       in_z       => from_dot_z,
+      in_prev_s  => from_dot_prev_s,
       in_s       => from_dot_s,
       in_ctrl    => from_dot_ctrl,
       in_weights => from_dot_weights,

@@ -31,6 +31,7 @@ entity dot_product is
     in_ctrl    : in ctrl_t;
     in_z       : in integer range 0 to NZ-1;
     in_s       : in signed(D-1 downto 0);
+    in_prev_s  : in signed(D-1 downto 0);
     in_weights : in signed(CZ*(OMEGA+3)-1 downto 0);
     in_diffs   : in signed(CZ*(D+3)-1 downto 0);
 
@@ -38,6 +39,7 @@ entity dot_product is
     out_ctrl    : out ctrl_t;
     out_z       : out integer range 0 to NZ-1;
     out_s       : out signed(D-1 downto 0);
+    out_prev_s  : out signed(D-1 downto 0);
     out_weights : out signed(CZ*(OMEGA+3)-1 downto 0);
     out_diffs   : out signed(CZ*(D+3)-1 downto 0)
     );
@@ -51,6 +53,7 @@ architecture rtl of dot_product is
     ctrl    : ctrl_t;
     z       : integer range 0 to NZ-1;
     s       : signed(D-1 downto 0);
+    prev_s  : signed(D-1 downto 0);
     weights : signed(CZ*(OMEGA+3)-1 downto 0);
     diffs   : signed(CZ*(D+3)-1 downto 0);
     locsum  : signed(D+2 downto 0);
@@ -81,6 +84,7 @@ begin
           ctrl    => in_ctrl,
           z       => in_z,
           s       => in_s,
+          prev_s  => in_prev_s,
           weights => in_weights,
           diffs   => in_diffs,
           locsum  => in_locsum);
@@ -113,6 +117,7 @@ begin
   out_ctrl    <= side_data_regs(STAGES).ctrl;
   out_z       <= side_data_regs(STAGES).z;
   out_s       <= side_data_regs(STAGES).s;
+  out_prev_s  <= side_data_regs(STAGES).prev_s;
   out_weights <= side_data_regs(STAGES).weights;
   out_diffs   <= side_data_regs(STAGES).diffs;
   out_locsum  <= side_data_regs(STAGES).locsum;

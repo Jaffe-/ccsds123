@@ -28,9 +28,10 @@ entity local_diff is
     s_nw  : in signed(D-1 downto 0);
     s_w   : in signed(D-1 downto 0);
 
-    in_valid : in std_logic;
-    in_ctrl  : in ctrl_t;
-    in_z     : in integer range 0 to NZ-1;
+    in_valid  : in std_logic;
+    in_ctrl   : in ctrl_t;
+    in_z      : in integer range 0 to NZ-1;
+    in_prev_s : in signed(D-1 downto 0);
 
     local_sum : out signed(D+2 downto 0);
     d_c       : out signed(D+2 downto 0);
@@ -38,10 +39,11 @@ entity local_diff is
     d_nw      : out signed(D+2 downto 0);
     d_w       : out signed(D+2 downto 0);
 
-    out_valid : out std_logic;
-    out_ctrl  : out ctrl_t;
-    out_z     : out integer range 0 to NZ-1;
-    out_s     : out signed(D-1 downto 0)
+    out_valid  : out std_logic;
+    out_ctrl   : out ctrl_t;
+    out_z      : out integer range 0 to NZ-1;
+    out_s      : out signed(D-1 downto 0);
+    out_prev_s : out signed(D-1 downto 0)
     );
 end local_diff;
 
@@ -52,10 +54,11 @@ architecture rtl of local_diff is
 
   -- Registers to keep control signals in sync with data
   type side_data_t is record
-    valid : std_logic;
-    ctrl  : ctrl_t;
-    z     : integer range 0 to NZ-1;
-    s     : signed(D-1 downto 0);
+    valid  : std_logic;
+    ctrl   : ctrl_t;
+    z      : integer range 0 to NZ-1;
+    s      : signed(D-1 downto 0);
+    prev_s : signed(D-1 downto 0);
   end record side_data_t;
 
   type side_data_arr_t is array(0 to 2) of side_data_t;
@@ -90,7 +93,8 @@ begin
           valid                   => '0',
           ctrl                    => ('0', '0', '0', '0', 0),
           z                       => 0,
-          s                       => (others => '0')));
+          s                       => (others => '0'),
+          prev_s                  => (others => '0')));
         s_cur_regs <= (others => 0);
         s_n_regs   <= (others => 0);
         s_nw_regs  <= (others => 0);
@@ -128,10 +132,11 @@ begin
         end if;
 
         side_data_regs(0) <= (
-          valid => in_valid,
-          ctrl  => in_ctrl,
-          z     => in_z,
-          s     => s_cur);
+          valid  => in_valid,
+          ctrl   => in_ctrl,
+          z      => in_z,
+          s      => s_cur,
+          prev_s => in_prev_s);
 
         s_cur_regs(0) <= s_cur_i;
         s_n_regs(0)   <= s_n_i;
@@ -180,17 +185,15 @@ begin
           d_nw <= to_signed(0, D+3);
         end if;
 
-        side_data_regs(2).valid <= side_data_regs(1).valid;
-        side_data_regs(2).ctrl  <= side_data_regs(1).ctrl;
-        side_data_regs(2).z     <= side_data_regs(1).z;
-        side_data_regs(2).s     <= side_data_regs(1).s;
+        side_data_regs(2) <= side_data_regs(1);
       end if;
     end if;
   end process;
 
-  out_valid <= side_data_regs(2).valid;
-  out_ctrl  <= side_data_regs(2).ctrl;
-  out_z     <= side_data_regs(2).z;
-  out_s     <= side_data_regs(2).s;
+  out_valid  <= side_data_regs(2).valid;
+  out_ctrl   <= side_data_regs(2).ctrl;
+  out_z      <= side_data_regs(2).z;
+  out_s      <= side_data_regs(2).s;
+  out_prev_s <= side_data_regs(2).prev_s;
 end rtl;
 
