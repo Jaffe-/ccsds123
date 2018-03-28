@@ -8,8 +8,10 @@ module top_tb;
 
    parameter BUBBLES = 0;
 
+   parameter PIPELINES = 4;
+
    reg clk, aresetn;
-   reg [D-1:0] s_axis_tdata;
+   reg [PIPELINES*D-1:0] s_axis_tdata;
    reg         s_axis_tvalid;
 
    wire        s_axis_tready;
@@ -18,7 +20,8 @@ module top_tb;
    wire         res_last;
 
    ccsds123_top
-     #(.D(D),
+     #(.PIPELINES(PIPELINES),
+       .D(D),
        .NX(NX),
        .NY(NY),
        .NZ(NZ),
@@ -47,7 +50,7 @@ module top_tb;
 
    always #(PERIOD/2) clk = ~clk;
 
-   integer          i, wr_i;
+   integer          i, wr_i, iter;
    integer          f_in, f_out;
    reg[200*8:0]    in_filename;
 
@@ -70,12 +73,14 @@ module top_tb;
          $finish;
       end
 
-      for (i = 0; i < 2; i = i + 1) begin
-         $display("Starting iteration %0d", i);
+      for (iter = 0; iter < 2; iter = iter + 1) begin
+         $display("Starting iteration %0d", iter);
          $fseek(f_in, 0, 0);
 
-         s_axis_tdata[D/2-1:0] <= $fgetc(f_in);
-         s_axis_tdata[D-1:D/2] <= $fgetc(f_in);
+         for (i = 0; i < PIPELINES; i = i + 1) begin
+            s_axis_tdata[2*i*8     +: 8] <= $fgetc(f_in);
+            s_axis_tdata[(2*i+1)*8 +: 8] <= $fgetc(f_in);
+         end
          s_axis_tvalid <= 1'b1;
          while (!$feof(f_in)) begin
             @(posedge clk);
@@ -83,12 +88,19 @@ module top_tb;
                if ((BUBBLES || $test$plusargs("BUBBLES")) && $urandom % 3 != 0) begin
                   s_axis_tvalid <= 1'b0;
                end else begin
-                  s_axis_tdata[D/2-1:0] <= $fgetc(f_in);
-                  s_axis_tdata[D-1:D/2] <= $fgetc(f_in);
+                  for (i = 0; i < PIPELINES; i = i + 1) begin
+                     s_axis_tdata[2*i*8     +: 8] <= $fgetc(f_in);
+                     s_axis_tdata[(2*i+1)*8 +: 8] <= $fgetc(f_in);
+                  end
                   s_axis_tvalid <= 1'b1;
                end
             end
          end
+         s_axis_tvalid <= 1'b0;
+         @(posedge clk);
+         @(posedge clk);
+         @(posedge clk);
+         @(posedge clk);
       end
 
       $fclose(f_in);
