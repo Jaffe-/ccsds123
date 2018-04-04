@@ -123,7 +123,7 @@ begin
     if (rising_edge(clk)) then
       if (aresetn = '0') then
         prev_s_reg <= (others => '0');
-      else
+      elsif (in_handshake = '1') then
         prev_s_reg <= in_tdata(PIPELINES*D-1 downto (PIPELINES-1)*D);
       end if;
     end if;
