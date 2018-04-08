@@ -78,7 +78,6 @@ architecture rtl of pipeline_top is
   signal d_w                    : signed(D+2 downto 0);
 
   signal local_diffs      : signed(CZ*(D+3)-1 downto 0);
-  signal weights          : signed(CZ*(OMEGA+3)-1 downto 0);
   signal pred_d_c         : signed(D+3+OMEGA+3+CZ-1-1 downto 0);
   signal from_dot_valid   : std_logic;
   signal from_dot_ctrl    : ctrl_t;
@@ -229,7 +228,7 @@ begin
       in_z       => from_local_diff_z,
       in_prev_s  => from_local_diff_prev_s,
       in_s       => from_local_diff_s,
-      in_weights => weights,
+      in_weights => in_weights,
       in_diffs   => local_diffs,
 
       out_locsum  => from_dot_locsum,
