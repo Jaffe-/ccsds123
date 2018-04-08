@@ -55,9 +55,10 @@ begin
         ELEMENTS     => NZ/PIPELINES,
         ELEMENT_SIZE => CZ*(OMEGA+3))
       port map (
-        clk => clk,
-        wr  => wr,
+        clk     => clk,
+        aresetn => aresetn,
 
+        wr     => wr,
         wraddr => wr_idx(i),
         wrdata => wr_data(i),
 
