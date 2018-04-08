@@ -97,7 +97,6 @@ architecture rtl of pipeline_top is
   signal from_pred_diffs   : diffs_type;
 
   signal from_w_update_valid   : std_logic;
-  signal from_w_update_z       : z_type;
   signal from_w_update_weights : weights_type;
 
   signal from_res_mapper_valid : std_logic;
@@ -287,7 +286,6 @@ begin
       aresetn => aresetn,
 
       in_ctrl    => from_pred_ctrl,
-      in_z       => from_pred_z,
       in_s       => from_pred_s,
       in_pred_s  => from_pred_pred_s,
       in_diffs   => from_pred_diffs,
@@ -295,7 +293,6 @@ begin
       in_weights => from_pred_weights,
 
       out_valid   => from_w_update_valid,
-      out_z       => from_w_update_z,
       out_weights => from_w_update_weights);
 
   i_residual_mapper : entity work.residual_mapper
