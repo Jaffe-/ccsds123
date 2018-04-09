@@ -103,13 +103,12 @@ begin
       out_ctrl => from_ctrl_ctrl,
       out_z    => from_ctrl_z_block);
 
-  i_weight_store : entity work.weight_store
+  i_weight_store : entity work.shared_store
     generic map (
-      PIPELINES => PIPELINES,
-      DELAY     => 2,
-      OMEGA     => OMEGA,
-      CZ        => CZ,
-      NZ        => NZ)
+      PIPELINES    => PIPELINES,
+      DELAY        => 2,
+      ELEMENT_SIZE => CZ*(OMEGA+3),
+      ELEMENTS     => NZ)
     port map (
       clk     => clk,
       aresetn => aresetn,
