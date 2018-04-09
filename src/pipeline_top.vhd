@@ -72,6 +72,10 @@ architecture rtl of pipeline_top is
   signal s_nw : std_logic_vector(D-1 downto 0);
   signal s_w  : std_logic_vector(D-1 downto 0);
 
+  signal d_n  : signed(D+2 downto 0);
+  signal d_w  : signed(D+2 downto 0);
+  signal d_nw : signed(D+2 downto 0);
+
   signal from_ctrl_ctrl : ctrl_t;
   signal from_ctrl_z    : z_type;
 
@@ -171,9 +175,9 @@ begin
 
         local_sum  => from_local_diff_locsum,
         d_c        => out_central_diff,
-        d_n        => local_diffs((D+3)*(P+3)-1 downto (D+3)*(P+2)),
-        d_w        => local_diffs((D+3)*(P+2)-1 downto (D+3)*(P+1)),
-        d_nw       => local_diffs((D+3)*(P+1)-1 downto (D+3)*P),
+        d_n        => d_n,
+        d_w        => d_w,
+        d_nw       => d_nw,
         out_valid  => from_local_diff_valid,
         out_ctrl   => from_local_diff_ctrl,
         out_z      => from_local_diff_z,
@@ -218,8 +222,11 @@ begin
   out_central_diff_valid <= from_local_diff_valid;
 
   g_add_central_diffs : if (P > 0) generate
-    process (in_prev_central_diffs, from_local_diff_z)
+    process (in_prev_central_diffs, from_local_diff_z, d_n, d_w, d_nw)
     begin
+      local_diffs((P+3)*(D+3)-1 downto (P+2)*(D+3)) <= d_n;
+      local_diffs((P+2)*(D+3)-1 downto (P+1)*(D+3)) <= d_w;
+      local_diffs((P+1)*(D+3)-1 downto P*(D+3))     <= d_nw;
       if (from_local_diff_z >= P) then
         local_diffs(P*(D+3)-1 downto 0) <= in_prev_central_diffs;
       else
