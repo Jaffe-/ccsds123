@@ -81,9 +81,6 @@ architecture rtl of pipeline_top is
   signal from_local_diff_s      : sample_type;
   signal from_local_diff_prev_s : sample_type;
   signal from_local_diff_locsum : locsum_type;
-  signal d_n                    : signed(D+2 downto 0);
-  signal d_nw                   : signed(D+2 downto 0);
-  signal d_w                    : signed(D+2 downto 0);
 
   signal local_diffs      : signed(CZ*(D+3)-1 downto 0);
   signal pred_d_c         : signed(D+3+OMEGA+3+CZ-1-1 downto 0);
