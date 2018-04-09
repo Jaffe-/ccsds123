@@ -344,7 +344,8 @@ begin
 
   i_sa_encoder : entity work.sa_encoder
     generic map (
-      NZB           => NZ/PIPELINES,
+      PIPELINES     => PIPELINES,
+      NZ            => NZ,
       D             => D,
       UMAX          => UMAX,
       KZ_PRIME      => KZ_PRIME,
@@ -356,7 +357,7 @@ begin
 
       in_valid    => from_res_mapper_valid,
       in_ctrl     => from_res_mapper_ctrl,
-      in_zb       => blk_idx(from_res_mapper_z),
+      in_z        => from_res_mapper_z,
       in_residual => from_res_mapper_delta,
 
       accumulator_rd_data => accumulator_rd_data,

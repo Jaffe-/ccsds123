@@ -5,7 +5,8 @@ use work.common.all;
 
 entity sa_encoder is
   generic (
-    NZB           : integer;
+    PIPELINES     : integer;
+    NZ            : integer;
     D             : integer;
     UMAX          : integer;
     KZ_PRIME      : integer;
@@ -19,7 +20,7 @@ entity sa_encoder is
 
     in_valid    : in std_logic;
     in_ctrl     : in ctrl_t;
-    in_zb       : in integer range 0 to NZB-1;
+    in_z        : in integer range 0 to NZ-1;
     in_residual : in unsigned(D-1 downto 0);
 
     accumulator_rd_data : in  std_logic_vector(D+COUNTER_SIZE-1 downto 0);
@@ -75,7 +76,7 @@ begin
           if (in_ctrl.first_in_line = '1' and in_ctrl.first_line = '1') then
             counter <= 2**INITIAL_COUNT;
           else
-            if (in_zb = NZB-1) then
+            if (in_z + PIPELINES > NZ - 1) then
               if (counter < 2**COUNTER_SIZE-1) then
                 counter <= counter + 1;
               else
@@ -100,13 +101,13 @@ begin
   begin
     if (rising_edge(clk)) then
       if (aresetn = '0') then
-        rhs                 <= 0;
-        rhs_part            <= 0;
-        counter_regs        <= (others => 0);
-        ctrl_regs           <= (others => ('0', '0', '0', '0', 0));
-        residual_regs       <= (others => (others => '0'));
-        valid_regs          <= (others => '0');
-        code_word_cases     <= (others => false);
+        rhs             <= 0;
+        rhs_part        <= 0;
+        counter_regs    <= (others => 0);
+        ctrl_regs       <= (others => ('0', '0', '0', '0', 0));
+        residual_regs   <= (others => (others => '0'));
+        valid_regs      <= (others => '0');
+        code_word_cases <= (others => false);
       else
         --------------------------------------------------------------------------------
         -- Stage 1 - Compute floor(49/2^7 * counter(t))
