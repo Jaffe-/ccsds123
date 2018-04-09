@@ -6,7 +6,6 @@ use work.common.all;
 entity local_diff_store is
   generic (
     PIPELINES : integer;
-    NZB       : integer;
     P         : integer;
     D         : integer
     );
@@ -16,7 +15,6 @@ entity local_diff_store is
 
     wr            : in std_logic;
     wr_local_diff : in signed(PIPELINES*(D+3)-1 downto 0);
-    zb            : in integer range 0 to NZB-1;
 
     local_diffs : out signed(P*(D+3)-1 downto 0)
     );
@@ -32,15 +30,11 @@ begin
         local_diffs_reg <= (others => '0');
       else
         if (wr = '1') then
-          if (zb = NZB-1) then
-            local_diffs_reg <= (others => '0');
+          if (PIPELINES < P) then
+            local_diffs_reg(PIPELINES*(D+3)-1 downto 0)                  <= wr_local_diff;
+            local_diffs_reg(local_diffs_reg'high downto PIPELINES*(D+3)) <= local_diffs_reg(local_diffs_reg'high-PIPELINES*(D+3) downto 0);
           else
-            if (PIPELINES < P) then
-              local_diffs_reg(PIPELINES*(D+3)-1 downto 0)                  <= wr_local_diff;
-              local_diffs_reg(local_diffs_reg'high downto PIPELINES*(D+3)) <= local_diffs_reg(local_diffs_reg'high-PIPELINES*(D+3) downto 0);
-            else
-              local_diffs_reg <= wr_local_diff(P*(D+3)-1 downto 0);
-            end if;
+            local_diffs_reg <= wr_local_diff(P*(D+3)-1 downto 0);
           end if;
         end if;
       end if;

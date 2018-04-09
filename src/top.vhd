@@ -71,9 +71,7 @@ architecture rtl of ccsds123_top is
   signal combiner_over_threshold : std_logic;
 
   type central_diff_arr_t is array (0 to PIPELINES-1) of signed(D+2 downto 0);
-  type central_diff_zb_arr_t is array (0 to PIPELINES-1) of integer range 0 to NZ/PIPELINES-1;
   signal central_diff_valid    : std_logic_vector(PIPELINES-1 downto 0);
-  signal central_diff_zb       : central_diff_zb_arr_t;
   signal central_diffs_vec     : signed(PIPELINES*(D+3)-1 downto 0);
   signal central_diff          : central_diff_arr_t;
   signal from_local_diff_store : signed(P*(D+3)-1 downto 0);
@@ -139,7 +137,6 @@ begin
   i_local_diff_store : entity work.local_diff_store
     generic map (
       PIPELINES => PIPELINES,
-      NZB       => NZ/PIPELINES,
       P         => P,
       D         => D)
     port map (
@@ -148,7 +145,6 @@ begin
 
       wr            => central_diff_valid(0),
       wr_local_diff => central_diffs_vec,
-      zb            => central_diff_zb(0),
 
       local_diffs => from_local_diff_store);
 
@@ -250,7 +246,6 @@ begin
 
         out_central_diff       => central_diff(i),
         out_central_diff_valid => central_diff_valid(i),
-        out_central_diff_zb    => central_diff_zb(i),
         in_prev_central_diffs  => prev_central_diffs,
 
         out_data     => pipeline_out_data((i+1)*(UMAX+D)-1 downto i*(UMAX+D)),
