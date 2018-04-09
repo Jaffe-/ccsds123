@@ -57,6 +57,8 @@ architecture rtl of ccsds123_top is
   signal from_ctrl_z_block : integer range 0 to NZ/PIPELINES-1;
 
   signal w_update_wr : std_logic_vector(PIPELINES-1 downto 0);
+  signal weights_wr  : signed(PIPELINES*CZ*(OMEGA+3)-1 downto 0);
+  signal weights_rd  : signed(PIPELINES*CZ*(OMEGA+3)-1 downto 0);
 
   signal pipeline_out_valid    : std_logic_vector(PIPELINES-1 downto 0);
   signal pipeline_out_last     : std_logic_vector(PIPELINES-1 downto 0);
@@ -101,6 +103,23 @@ begin
       out_ctrl => from_ctrl_ctrl,
       out_z    => from_ctrl_z_block);
 
+  i_weight_store : entity work.weight_store
+    generic map (
+      PIPELINES => PIPELINES,
+      DELAY     => 2,
+      OMEGA     => OMEGA,
+      CZ        => CZ,
+      NZ        => NZ)
+    port map (
+      clk     => clk,
+      aresetn => aresetn,
+
+      wr         => w_update_wr(0),
+      wr_weights => weights_wr,
+
+      rd         => in_handshake,
+      rd_weights => weights_rd
+      );
 
   i_local_diff_store : entity work.local_diff_store
     generic map (
@@ -168,6 +187,7 @@ begin
         OMEGA         => OMEGA,
         D             => D,
         P             => P,
+        CZ            => CZ,
         R             => R,
         V_MIN         => V_MIN,
         V_MAX         => V_MAX,
@@ -187,8 +207,10 @@ begin
         in_sample      => in_tdata((i+1)*D-1 downto i*D),
         in_prev_sample => prev_s,
         in_valid       => in_handshake,
+        in_weights     => weights_rd((i+1)*CZ*(OMEGA+3)-1 downto i*CZ*(OMEGA+3)),
 
-        w_update_wr => w_update_wr(i),
+        w_update_wr      => w_update_wr(i),
+        w_update_weights => weights_wr((i+1)*CZ*(OMEGA+3)-1 downto i*CZ*(OMEGA+3)),
 
         out_central_diff       => central_diff(i),
         out_central_diff_valid => central_diff_valid(i),

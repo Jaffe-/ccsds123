@@ -48,15 +48,16 @@ architecture rtl of control is
   signal z : integer range 0 to NZ-1;
   signal t : integer range 0 to NX*NY-1;
 
-  constant C_INCL_PIPE_CTRL : boolean := NZ/PIPELINES < 3 + integer(ceil(log2(real(CZ)))) + 2 + 3;
+  constant C_INCL_PIPE_CTRL : boolean := NZ/PIPELINES < 3 + (1 + integer(ceil(log2(real(CZ))))) + 2 + 3 + 1;
 begin
   -- Stall input if the pipeline is deeper than NZ, and we have filled up NZ
   -- components already
   --
   --  Local diff calculations: 3
-  --  Dot product:             CZ
+  --  Dot product:             ceil(log2(CZ))
   --  Predictor:               2
   --  Weight update:           3
+  --  Weight storage:          1
   g_pipe_ctrl : if (C_INCL_PIPE_CTRL) generate
     signal count : integer range 0 to NZ;
   begin

@@ -12,6 +12,7 @@ entity pipeline_top is
     OMEGA         : integer := 19;
     D             : integer := 16;
     P             : integer := 15;
+    CZ            : integer := 18;
     R             : integer := 64;
     V_MIN         : integer := -6;
     V_MAX         : integer := 9;
@@ -31,9 +32,11 @@ entity pipeline_top is
     in_sample      : in std_logic_vector(D-1 downto 0);
     in_prev_sample : in std_logic_vector(D-1 downto 0);
     in_valid       : in std_logic;
+    in_weights     : in signed(CZ*(OMEGA+3)-1 downto 0);
 
     -- Intermediate signals
-    w_update_wr : out std_logic;
+    w_update_wr      : out std_logic;
+    w_update_weights : out signed(CZ*(OMEGA+3)-1 downto 0);
 
     out_central_diff       : out signed(D+2 downto 0);
     out_central_diff_valid : out std_logic;
@@ -48,15 +51,6 @@ entity pipeline_top is
 end pipeline_top;
 
 architecture rtl of pipeline_top is
-  function CZ return integer is
-  begin
-    if (REDUCED) then
-      return P;
-    else
-      return P + 3;
-    end if;
-  end function CZ;
-
   function blk_idx(z : integer) return integer is
   begin
     return z / PIPELINES;
@@ -84,7 +78,6 @@ architecture rtl of pipeline_top is
   signal d_w                    : signed(D+2 downto 0);
 
   signal local_diffs      : signed(CZ*(D+3)-1 downto 0);
-  signal weights          : signed(CZ*(OMEGA+3)-1 downto 0);
   signal pred_d_c         : signed(D+3+OMEGA+3+CZ-1-1 downto 0);
   signal from_dot_valid   : std_logic;
   signal from_dot_ctrl    : ctrl_t;
@@ -104,7 +97,6 @@ architecture rtl of pipeline_top is
   signal from_pred_diffs   : diffs_type;
 
   signal from_w_update_valid   : std_logic;
-  signal from_w_update_z       : z_type;
   signal from_w_update_weights : weights_type;
 
   signal from_res_mapper_valid : std_logic;
@@ -114,7 +106,8 @@ architecture rtl of pipeline_top is
 
 begin
 
-  w_update_wr <= from_w_update_valid;
+  w_update_wr      <= from_w_update_valid;
+  w_update_weights <= from_w_update_weights;
 
   i_sample_store : entity work.sample_store
     generic map (
@@ -208,24 +201,6 @@ begin
     local_diffs(P*(D+3)-1 downto 0) <= in_prev_central_diffs;
   end generate g_add_central_diffs;
 
-  i_weight_store : entity work.weight_store
-    generic map (
-      DELAY => 3,
-      OMEGA => OMEGA,
-      CZ    => CZ,
-      N     => NZ/PIPELINES)
-    port map (
-      clk     => clk,
-      aresetn => aresetn,
-
-      wr        => from_w_update_valid,
-      wr_z      => blk_idx(from_w_update_z),
-      wr_weight => from_w_update_weights,
-
-      rd        => in_valid,
-      rd_z      => blk_idx(in_z),
-      rd_weight => weights);
-
   i_dot : entity work.dot_product
     generic map (
       N      => CZ,
@@ -242,7 +217,7 @@ begin
 
       a       => local_diffs,
       a_valid => from_local_diff_valid,
-      b       => weights,
+      b       => in_weights,
       b_valid => '1',
       s       => pred_d_c,
       s_valid => from_dot_valid,
@@ -252,7 +227,7 @@ begin
       in_z       => from_local_diff_z,
       in_prev_s  => from_local_diff_prev_s,
       in_s       => from_local_diff_s,
-      in_weights => weights,
+      in_weights => in_weights,
       in_diffs   => local_diffs,
 
       out_locsum  => from_dot_locsum,
@@ -311,7 +286,6 @@ begin
       aresetn => aresetn,
 
       in_ctrl    => from_pred_ctrl,
-      in_z       => from_pred_z,
       in_s       => from_pred_s,
       in_pred_s  => from_pred_pred_s,
       in_diffs   => from_pred_diffs,
@@ -319,7 +293,6 @@ begin
       in_weights => from_pred_weights,
 
       out_valid   => from_w_update_valid,
-      out_z       => from_w_update_z,
       out_weights => from_w_update_weights);
 
   i_residual_mapper : entity work.residual_mapper

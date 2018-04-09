@@ -96,11 +96,6 @@ module top_tb;
                end
             end
          end
-         s_axis_tvalid <= 1'b0;
-         @(posedge clk);
-         @(posedge clk);
-         @(posedge clk);
-         @(posedge clk);
       end
 
       $fclose(f_in);
@@ -109,6 +104,7 @@ module top_tb;
    end;
 
    integer byte_idx, j;
+   integer prev_done;
    reg [200*8:0] out_filename;
    reg [200*8:0] out_dir;
    initial begin
@@ -118,7 +114,8 @@ module top_tb;
       for (j = 0; j < 2; j = j + 1) begin
          $sformat(out_filename, "%0s/out_%0d.bin", out_dir, j);
          f_out = $fopen(out_filename, "wb");
-         while (res_valid !== 1'b1 || res_last !== 1'b1) begin
+         while (prev_done || (res_valid !== 1'b1 || res_last !== 1'b1)) begin
+            prev_done = 0;
             @(posedge clk);
             if (res_valid) begin
                for (byte_idx = 0; byte_idx < BUS_WIDTH/8; byte_idx = byte_idx + 1) begin
@@ -126,7 +123,7 @@ module top_tb;
                end
             end
          end
-         @(posedge clk);
+         prev_done = 1;
          $display("Done with iteration %0d", j);
          $fclose(f_out);
       end

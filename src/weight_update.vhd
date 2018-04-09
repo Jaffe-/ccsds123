@@ -21,7 +21,6 @@ entity weight_update is
     aresetn : in std_logic;
 
     in_ctrl    : in ctrl_t;
-    in_z       : in integer range 0 to NZ-1;
     in_s       : in signed(D-1 downto 0);
     in_pred_s  : in signed(D downto 0);
     in_diffs   : in signed((D+3)*CZ-1 downto 0);
@@ -29,7 +28,6 @@ entity weight_update is
     in_weights : in signed(CZ*(OMEGA+3)-1 downto 0);
 
     out_valid   : out std_logic;
-    out_z       : out integer range 0 to NZ-1;
     out_weights : out signed(CZ*(OMEGA+3)-1 downto 0)
     );
 end weight_update;
@@ -52,9 +50,6 @@ architecture rtl of weight_update is
   signal mux_reg : mux_arr_t;
 
   signal valid_regs : std_logic_vector(2 downto 0);
-
-  type z_arr_t is array (0 to 2) of integer range 0 to NZ-1;
-  signal z_regs : z_arr_t;
 
   type ctrl_arr_t is array (0 to 1) of ctrl_t;
   signal ctrl_regs : ctrl_arr_t;
@@ -100,7 +95,6 @@ begin
         diff_regs   <= (others => (others => '0'));
         weight_regs <= (others => (others => (others => '0')));
         valid_regs  <= (others => '0');
-        z_regs      <= (others => 0);
         ctrl_regs   <= (others => ('0', '0', '0', '0', 0));
       else
         --------------------------------------------------------------------------------
@@ -108,7 +102,6 @@ begin
         --------------------------------------------------------------------------------
         weight_regs(0) <= weight_vec;
         valid_regs(0)  <= in_valid;
-        z_regs(0)      <= in_z;
         ctrl_regs(0)   <= in_ctrl;
 
         -- Compute sgn(e_z(t)) * U(t) for each component
@@ -128,7 +121,6 @@ begin
         --------------------------------------------------------------------------------
         weight_regs(1) <= weight_regs(0);
         valid_regs(1)  <= valid_regs(0);
-        z_regs(1)      <= z_regs(0);
         ctrl_regs(1)   <= ctrl_regs(0);
 
         for comp in 0 to CZ-1 loop
@@ -153,7 +145,6 @@ begin
         -- Stage 3 - compute W(t+1) = clip(W(t) + mux_reg)
         --------------------------------------------------------------------------------
         valid_regs(2) <= valid_regs(1);
-        z_regs(2)     <= z_regs(1);
 
         if (ctrl_regs(1).first_line = '1' and ctrl_regs(1).first_in_line = '1') then
           new_weight_vec <= init_weight_vec;
@@ -174,5 +165,4 @@ begin
     end loop;
   end process;
   out_valid <= valid_regs(2);
-  out_z     <= z_regs(2);
 end rtl;

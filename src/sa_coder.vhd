@@ -200,19 +200,23 @@ begin
         --------------------------------------------------------------------------------
         -- Stage 5 - Compute code word
         --------------------------------------------------------------------------------
-        if (ctrl_regs(3).first_line = '1' and ctrl_regs(3).first_in_line = '1') then
-          code_word     <= residual_regs(3) & (UMAX-1 downto 0 => '0');
-          code_num_bits <= D;
-        elsif (u_z >= UMAX) then
-          code_word     <= (UMAX-1 downto 0 => '0') & residual_regs(3);
-          code_num_bits <= UMAX + D;
+        if (valid_regs(3) = '0') then
+          code_num_bits <= 0;
         else
-          for i in 0 to UMAX - 1 loop
-            code_word_arr(i)     := (i-1 downto 0 => '0') & '1' & k_shifted_residual & (UMAX - i - 2 downto 0 => '0');
-            code_num_bits_arr(i) := i + 1 + k_z;
-          end loop;
-          code_word     <= code_word_arr(u_z);
-          code_num_bits <= code_num_bits_arr(u_z);
+          if (ctrl_regs(3).first_line = '1' and ctrl_regs(3).first_in_line = '1') then
+            code_word     <= residual_regs(3) & (UMAX-1 downto 0 => '0');
+            code_num_bits <= D;
+          elsif (u_z >= UMAX) then
+            code_word     <= (UMAX-1 downto 0 => '0') & residual_regs(3);
+            code_num_bits <= UMAX + D;
+          else
+            for i in 0 to UMAX - 1 loop
+              code_word_arr(i)     := (i-1 downto 0 => '0') & '1' & k_shifted_residual & (UMAX - i - 2 downto 0 => '0');
+              code_num_bits_arr(i) := i + 1 + k_z;
+            end loop;
+            code_word     <= code_word_arr(u_z);
+            code_num_bits <= code_num_bits_arr(u_z);
+          end if;
         end if;
         valid_regs(4) <= valid_regs(3);
         ctrl_regs(4)  <= ctrl_regs(3);
