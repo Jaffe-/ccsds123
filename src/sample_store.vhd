@@ -31,6 +31,7 @@ use work.common.all;
 
 entity sample_store is
   generic (
+    PIPELINES : integer;
     D         : integer;
     NX        : integer;
     NZ        : integer
@@ -39,68 +40,80 @@ entity sample_store is
     clk     : in std_logic;
     aresetn : in std_logic;
 
-    in_sample : in std_logic_vector(D-1 downto 0);
-    in_valid  : in std_logic;
+    in_s     : in std_logic_vector(PIPELINES*D-1 downto 0);
+    in_valid : in std_logic;
 
-    out_s_ne : out std_logic_vector(D-1 downto 0);
-    out_s_n  : out std_logic_vector(D-1 downto 0);
-    out_s_nw : out std_logic_vector(D-1 downto 0);
-    out_s_w  : out std_logic_vector(D-1 downto 0)
+    out_s_ne : out std_logic_vector(PIPELINES*D-1 downto 0);
+    out_s_n  : out std_logic_vector(PIPELINES*D-1 downto 0);
+    out_s_nw : out std_logic_vector(PIPELINES*D-1 downto 0);
+    out_s_w  : out std_logic_vector(PIPELINES*D-1 downto 0)
     );
 end sample_store;
 
 architecture rtl of sample_store is
-  signal from_w_fifo_sample  : std_logic_vector(D-1 downto 0);
-  signal from_ne_fifo_sample : std_logic_vector(D-1 downto 0);
-  signal from_n_fifo_sample  : std_logic_vector(D-1 downto 0);
-  signal from_nw_fifo_sample : std_logic_vector(D-1 downto 0);
+  type sample_arr_t is array (0 to PIPELINES-1) of std_logic_vector(D-1 downto 0);
+  signal to_fifo      : sample_arr_t;
+  signal from_w_fifo  : sample_arr_t;
+  signal from_ne_fifo : sample_arr_t;
+  signal from_n_fifo  : sample_arr_t;
+  signal from_nw_fifo : sample_arr_t;
+
+  constant STEP : integer := NZ mod PIPELINES;
 begin
-  i_w_fifo : entity work.fifo
-    generic map (
-      ELEMENT_SIZE => D,
-      SIZE         => NZ)
-    port map (
-      clk      => clk,
-      aresetn  => aresetn,
-      in_data  => in_sample,
-      in_valid => in_valid,
-      out_data => from_w_fifo_sample);
+  g_fifos : for i in 0 to PIPELINES-1 generate
+    to_fifo(i) <= in_s((i+1)*D-1 downto i*D);
 
-  i_ne_fifo : entity work.fifo
-    generic map (
-      ELEMENT_SIZE => D,
-      SIZE         => (NX-2)*NZ)
-    port map (
-      clk      => clk,
-      aresetn  => aresetn,
-      in_data  => from_w_fifo_sample,
-      in_valid => in_valid,
-      out_data => from_ne_fifo_sample);
+    i_w_fifo : entity work.fifo
+      generic map (
+        ELEMENT_SIZE => D,
+        SIZE         => (NZ + i) / PIPELINES)
+      port map (
+        clk      => clk,
+        aresetn  => aresetn,
+        in_data  => to_fifo(i),
+        in_valid => in_valid,
+        out_data => from_w_fifo((i + STEP) mod PIPELINES));
 
-  i_n_fifo : entity work.fifo
-    generic map (
-      ELEMENT_SIZE => D,
-      SIZE         => NZ)
-    port map (
-      clk      => clk,
-      aresetn  => aresetn,
-      in_data  => from_ne_fifo_sample,
-      in_valid => in_valid,
-      out_data => from_n_fifo_sample);
+    out_s_w((i+1)*D-1 downto i*D) <= from_w_fifo(i);
 
-  i_nw_fifo : entity work.fifo
-    generic map (
-      ELEMENT_SIZE => D,
-      SIZE         => NZ)
-    port map (
-      clk      => clk,
-      aresetn  => aresetn,
-      in_data  => from_n_fifo_sample,
-      in_valid => in_valid,
-      out_data => from_nw_fifo_sample);
+    i_ne_fifo : entity work.fifo
+      generic map (
+        ELEMENT_SIZE => D,
+        SIZE         => ((NX-2)*NZ + i) / PIPELINES)
+      port map (
+        clk      => clk,
+        aresetn  => aresetn,
+        in_data  => from_w_fifo(i),
+        in_valid => in_valid,
+        out_data => from_ne_fifo((i + (NX-2)*STEP) mod PIPELINES));
 
-  out_s_w  <= from_w_fifo_sample;
-  out_s_ne <= from_ne_fifo_sample;
-  out_s_n  <= from_n_fifo_sample;
-  out_s_nw <= from_nw_fifo_sample;
+    out_s_ne((i+1)*D-1 downto i*D) <= from_ne_fifo(i);
+
+    i_n_fifo : entity work.fifo
+      generic map (
+        ELEMENT_SIZE => D,
+        SIZE         => (NZ + i) / PIPELINES)
+      port map (
+        clk      => clk,
+        aresetn  => aresetn,
+        in_data  => from_ne_fifo(i),
+        in_valid => in_valid,
+        out_data => from_n_fifo((i + STEP) mod PIPELINES));
+
+    out_s_n((i+1)*D-1 downto i*D) <= from_n_fifo(i);
+
+    i_nw_fifo : entity work.fifo
+      generic map (
+        ELEMENT_SIZE => D,
+        SIZE         => (NZ + i) / PIPELINES)
+      port map (
+        clk      => clk,
+        aresetn  => aresetn,
+        in_data  => from_n_fifo(i),
+        in_valid => in_valid,
+        out_data => from_nw_fifo((i + STEP) mod PIPELINES));
+
+    out_s_nw((i+1)*D-1 downto i*D) <= from_nw_fifo(i);
+
+  end generate g_fifos;
 end rtl;

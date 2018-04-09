@@ -80,6 +80,11 @@ architecture rtl of ccsds123_top is
 
   constant C_INCL_PIPE_CTRL : boolean := NZ/PIPELINES < 3 + (1 + integer(ceil(log2(real(CZ))))) + 2 + 3 + 1;
 
+  signal from_sample_store_ne : std_logic_vector(PIPELINES*D-1 downto 0);
+  signal from_sample_store_nw : std_logic_vector(PIPELINES*D-1 downto 0);
+  signal from_sample_store_n  : std_logic_vector(PIPELINES*D-1 downto 0);
+  signal from_sample_store_w  : std_logic_vector(PIPELINES*D-1 downto 0);
+
 begin
   in_handshake <= in_tvalid and in_ready;
   in_tready    <= in_ready;
@@ -116,6 +121,24 @@ begin
   g_nopipe_ctrl : if (not C_INCL_PIPE_CTRL) generate
     in_ready <= not combiner_over_threshold;
   end generate g_nopipe_ctrl;
+
+  i_sample_store : entity work.sample_store
+    generic map (
+      PIPELINES => PIPELINES,
+      D         => D,
+      NX        => NX,
+      NZ        => NZ)
+    port map (
+      clk     => clk,
+      aresetn => aresetn,
+
+      in_s     => in_tdata,
+      in_valid => in_handshake,
+
+      out_s_ne => from_sample_store_ne,
+      out_s_n  => from_sample_store_n,
+      out_s_nw => from_sample_store_nw,
+      out_s_w  => from_sample_store_w);
 
   i_weight_store : entity work.shared_store
     generic map (
@@ -231,7 +254,11 @@ begin
         clk     => clk,
         aresetn => aresetn,
 
-        in_sample      => in_tdata((i+1)*D-1 downto i*D),
+        in_s           => in_tdata((i+1)*D-1 downto i*D),
+        in_s_ne        => from_sample_store_ne((i+1)*D-1 downto i*D),
+        in_s_nw        => from_sample_store_nw((i+1)*D-1 downto i*D),
+        in_s_n         => from_sample_store_n((i+1)*D-1 downto i*D),
+        in_s_w         => from_sample_store_w((i+1)*D-1 downto i*D),
         in_prev_sample => prev_s,
         in_valid       => in_handshake,
         in_weights     => signed(weights_rd((i+1)*CZ*(OMEGA+3)-1 downto i*CZ*(OMEGA+3))),

@@ -30,7 +30,11 @@ entity pipeline_top is
     clk     : in std_logic;
     aresetn : in std_logic;
 
-    in_sample      : in std_logic_vector(D-1 downto 0);
+    in_s           : in std_logic_vector(D-1 downto 0);
+    in_s_ne        : in std_logic_vector(D-1 downto 0);
+    in_s_nw        : in std_logic_vector(D-1 downto 0);
+    in_s_n         : in std_logic_vector(D-1 downto 0);
+    in_s_w         : in std_logic_vector(D-1 downto 0);
     in_prev_sample : in std_logic_vector(D-1 downto 0);
     in_valid       : in std_logic;
     in_weights     : in signed(CZ*(OMEGA+3)-1 downto 0);
@@ -134,23 +138,6 @@ begin
       out_ctrl => from_ctrl_ctrl,
       out_z    => from_ctrl_z);
 
-  i_sample_store : entity work.sample_store
-    generic map (
-      D  => D,
-      NX => NX,
-      NZ => NZ/PIPELINES)
-    port map (
-      clk     => clk,
-      aresetn => aresetn,
-
-      in_sample => in_sample,
-      in_valid  => in_valid,
-
-      out_s_ne => s_ne,
-      out_s_n  => s_n,
-      out_s_nw => s_nw,
-      out_s_w  => s_w);
-
   g_local_diff_full : if (not REDUCED) generate
     i_local_diff : entity work.local_diff
       generic map (
@@ -163,11 +150,11 @@ begin
         clk     => clk,
         aresetn => aresetn,
 
-        s_cur     => signed(in_sample),
-        s_ne      => signed(s_ne),
-        s_n       => signed(s_n),
-        s_nw      => signed(s_nw),
-        s_w       => signed(s_w),
+        s_cur     => signed(in_s),
+        s_ne      => signed(in_s_ne),
+        s_n       => signed(in_s_n),
+        s_nw      => signed(in_s_nw),
+        s_w       => signed(in_s_w),
         in_prev_s => signed(in_prev_sample),
         in_valid  => in_valid,
         in_ctrl   => from_ctrl_ctrl,
@@ -197,11 +184,11 @@ begin
         clk     => clk,
         aresetn => aresetn,
 
-        s_cur     => signed(in_sample),
-        s_ne      => signed(s_ne),
-        s_n       => signed(s_n),
-        s_nw      => signed(s_nw),
-        s_w       => signed(s_w),
+        s_cur     => signed(in_s),
+        s_ne      => signed(in_s_ne),
+        s_n       => signed(in_s_n),
+        s_nw      => signed(in_s_nw),
+        s_w       => signed(in_s_w),
         in_prev_s => signed(in_prev_sample),
         in_valid  => in_valid,
         in_ctrl   => from_ctrl_ctrl,
