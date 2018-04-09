@@ -1,6 +1,7 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.all;
 use IEEE.NUMERIC_STD.all;
+use ieee.math_real.all;
 use work.common.all;
 
 entity ccsds123_top is
@@ -81,9 +82,45 @@ architecture rtl of ccsds123_top is
   signal from_local_diff_store : signed(P*(D+3)-1 downto 0);
 
   signal prev_s_reg : std_logic_vector(D-1 downto 0);
+
+  constant C_INCL_PIPE_CTRL : boolean := NZ/PIPELINES < 3 + (1 + integer(ceil(log2(real(CZ))))) + 2 + 3 + 1;
+
 begin
   in_handshake <= in_tvalid and in_ready;
   in_tready    <= in_ready;
+
+  -- Stall input if the pipeline is deeper than NZ, and we have filled up NZ
+  -- components already
+  --
+  --  Local diff calculations: 3
+  --  Dot product:             ceil(log2(CZ))
+  --  Predictor:               2
+  --  Weight update:           3
+  --  Weight storage:          1
+  g_pipe_ctrl : if (C_INCL_PIPE_CTRL) generate
+    signal count : integer range 0 to NZ;
+  begin
+    process (clk)
+    begin
+      if (rising_edge(clk)) then
+        if (aresetn = '0') then
+          count <= 0;
+        else
+          if (in_handshake = '1' and w_update_wr(0) = '0') then
+            count <= count + 1;
+          elsif (w_update_wr(0) = '1' and in_handshake = '0') then
+            count <= count - 1;
+          end if;
+        end if;
+      end if;
+    end process;
+
+    in_ready <= '1' when count < NZ/PIPELINES and combiner_over_threshold = '0' else '0';
+  end generate g_pipe_ctrl;
+
+  g_nopipe_ctrl : if (not C_INCL_PIPE_CTRL) generate
+    in_ready <= not combiner_over_threshold;
+  end generate g_nopipe_ctrl;
 
   i_control : entity work.control
     generic map (
@@ -100,11 +137,7 @@ begin
       clk     => clk,
       aresetn => aresetn,
 
-      tick               => in_handshake,
-      w_upd_handshake    => w_update_wr(0),
-      ready              => in_ready,
-      out_over_threshold => combiner_over_threshold,
-
+      tick     => in_handshake,
       out_ctrl => from_ctrl_ctrl,
       out_z    => from_ctrl_z_block);
 
