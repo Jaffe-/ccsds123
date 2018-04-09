@@ -12,13 +12,24 @@ package common is
     scale_exponent : integer range -6 to 9;
   end record ctrl_t;
 
-  function clip(val     : integer; val_min : integer; val_max : integer) return integer;
+  function or_slv(slv : std_logic_vector) return std_logic;
+  function clip(val : integer; val_min : integer; val_max : integer) return integer;
   function wrap_inc(val : integer; max : integer) return integer;
   function max(a : integer; b : integer) return integer;
   function len2bits(val : integer) return integer;
 end common;
 
 package body common is
+  function or_slv(slv : std_logic_vector) return std_logic is
+    variable val : std_logic;
+  begin
+    val := '0';
+    for i in slv'range loop
+      val := val or slv(i);
+    end loop;
+    return val;
+  end function or_slv;
+
   function len2bits(val : integer) return integer is
   begin
     return integer(ceil(log2(real(val))));

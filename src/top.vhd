@@ -273,7 +273,7 @@ begin
       in_words   => pipeline_out_data,
       in_lengths => pipeline_out_num_bits,
       in_valid   => pipeline_out_valid(0),
-      in_last    => pipeline_out_last(PIPELINES-1),
+      in_last    => or_slv(pipeline_out_last),
 
       out_data  => out_tdata,
       out_valid => out_tvalid,
