@@ -113,11 +113,11 @@ begin
       clk     => clk,
       aresetn => aresetn,
 
-      wr         => w_update_wr(0),
-      wr_weights => weights_wr,
+      wr      => w_update_wr(0),
+      wr_data => weights_wr,
 
-      rd         => in_handshake,
-      rd_weights => weights_rd
+      rd      => in_handshake,
+      rd_data => weights_rd
       );
 
   i_local_diff_store : entity work.local_diff_store
