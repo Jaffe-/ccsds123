@@ -38,6 +38,11 @@ entity pipeline_top is
     w_update_wr      : out std_logic;
     w_update_weights : out signed(CZ*(OMEGA+3)-1 downto 0);
 
+    accumulator_rd      : out std_logic;
+    accumulator_rd_data : in  std_logic_vector(D+COUNTER_SIZE-1 downto 0);
+    accumulator_wr      : out std_logic;
+    accumulator_wr_data : out std_logic_vector(D+COUNTER_SIZE-1 downto 0);
+
     out_central_diff       : out signed(D+2 downto 0);
     out_central_diff_valid : out std_logic;
     out_central_diff_zb    : out integer range 0 to NZ/PIPELINES-1;
@@ -331,9 +336,15 @@ begin
       in_zb       => blk_idx(from_res_mapper_z),
       in_residual => from_res_mapper_delta,
 
+      accumulator_rd_data => accumulator_rd_data,
+      accumulator_wr      => accumulator_wr,
+      accumulator_wr_data => accumulator_wr_data,
+
       out_valid    => out_valid,
       out_last     => out_last,
       out_data     => out_data,
       out_num_bits => out_num_bits);
+
+  accumulator_rd <= from_res_mapper_valid;
 
 end rtl;

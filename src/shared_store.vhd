@@ -81,9 +81,9 @@ begin
           wr_cnt <= wrap_inc(wr_cnt, ELEMENTS/PIPELINES-1);
         end if;
 
-        delay_stages(0) <= rd_data_vec;
-
         if (DELAY > 0) then
+          delay_stages(0) <= rd_data_vec;
+
           for i in 1 to DELAY-1 loop
             delay_stages(i) <= delay_stages(i-1);
           end loop;
@@ -92,5 +92,5 @@ begin
     end if;
   end process;
 
-  rd_data <= delay_stages(DELAY-1);
+  rd_data <= delay_stages(DELAY-1) when DELAY > 0 else rd_data_vec;
 end rtl;

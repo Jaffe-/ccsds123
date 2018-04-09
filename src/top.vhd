@@ -60,6 +60,11 @@ architecture rtl of ccsds123_top is
   signal weights_wr  : signed(PIPELINES*CZ*(OMEGA+3)-1 downto 0);
   signal weights_rd  : std_logic_vector(PIPELINES*CZ*(OMEGA+3)-1 downto 0);
 
+  signal accumulator_wr      : std_logic_vector(PIPELINES-1 downto 0);
+  signal accumulator_wr_data : std_logic_vector(PIPELINES*(D+COUNTER_SIZE)-1 downto 0);
+  signal accumulator_rd      : std_logic_vector(PIPELINES-1 downto 0);
+  signal accumulator_rd_data : std_logic_vector(PIPELINES*(D+COUNTER_SIZE)-1 downto 0);
+
   signal pipeline_out_valid    : std_logic_vector(PIPELINES-1 downto 0);
   signal pipeline_out_last     : std_logic_vector(PIPELINES-1 downto 0);
   signal pipeline_out_data     : std_logic_vector(PIPELINES*(UMAX + D)-1 downto 0);
@@ -136,6 +141,23 @@ begin
 
       local_diffs => from_local_diff_store);
 
+  i_accumulator_store : entity work.shared_store
+    generic map (
+      PIPELINES    => PIPELINES,
+      DELAY        => 0,
+      ELEMENT_SIZE => D+COUNTER_SIZE,
+      ELEMENTS     => NZ)
+    port map (
+      clk     => clk,
+      aresetn => aresetn,
+
+      wr      => accumulator_wr(0),
+      wr_data => accumulator_wr_data,
+
+      rd      => accumulator_rd(0),
+      rd_data => accumulator_rd_data
+      );
+
   process (clk)
   begin
     if (rising_edge(clk)) then
@@ -210,6 +232,11 @@ begin
 
         w_update_wr      => w_update_wr(i),
         w_update_weights => weights_wr((i+1)*CZ*(OMEGA+3)-1 downto i*CZ*(OMEGA+3)),
+
+        accumulator_wr      => accumulator_wr(i),
+        accumulator_wr_data => accumulator_wr_data((i+1)*(D+COUNTER_SIZE)-1 downto i*(D+COUNTER_SIZE)),
+        accumulator_rd      => accumulator_rd(i),
+        accumulator_rd_data => accumulator_rd_data((i+1)*(D+COUNTER_SIZE)-1 downto i*(D+COUNTER_SIZE)),
 
         out_central_diff       => central_diff(i),
         out_central_diff_valid => central_diff_valid(i),

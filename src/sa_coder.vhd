@@ -22,6 +22,10 @@ entity sa_encoder is
     in_zb       : in integer range 0 to NZB-1;
     in_residual : in unsigned(D-1 downto 0);
 
+    accumulator_rd_data : in  std_logic_vector(D+COUNTER_SIZE-1 downto 0);
+    accumulator_wr      : out std_logic;
+    accumulator_wr_data : out std_logic_vector(D+COUNTER_SIZE-1 downto 0);
+
     out_valid    : out std_logic;
     out_last     : out std_logic;
     out_data     : out std_logic_vector(UMAX + D-1 downto 0);
@@ -34,9 +38,6 @@ architecture rtl of sa_encoder is
 
   type counter_arr_t is array(0 to 1) of integer range 0 to 2**COUNTER_SIZE-1;
   signal counter_regs : counter_arr_t;
-
-  type z_arr_t is array (0 to 1) of integer range 0 to NZB-1;
-  signal z_regs : z_arr_t;
 
   type residual_arr_t is array (0 to 3) of std_logic_vector(D-1 downto 0);
   signal residual_regs      : residual_arr_t;
@@ -59,34 +60,9 @@ architecture rtl of sa_encoder is
   signal code_word_cases : code_word_cases_t;
 
   subtype accumulator_t is integer range 0 to 2**(D+COUNTER_SIZE)-1;
-  signal accumulator_rd_data : accumulator_t;
-  signal accumulator_wr      : std_logic;
-  signal accumulator_wr_z    : integer range 0 to NZB-1;
-  signal accumulator_wr_data : accumulator_t;
-
-  type accumulator_arr_t is array (0 to NZB-1) of accumulator_t;
-  signal accumulators : accumulator_arr_t := (others => 0);
+  signal accumulator_in  : accumulator_t;
+  signal accumulator_out : accumulator_t;
 begin
-
-  -- RAM write port
-  process (clk)
-  begin
-    if (rising_edge(clk)) then
-      if (accumulator_wr = '1') then
-        accumulators(accumulator_wr_z) <= accumulator_wr_data;
-      end if;
-    end if;
-  end process;
-
-  -- RAM read port
-  process (clk)
-  begin
-    if (rising_edge(clk)) then
-      if (in_valid = '1') then
-        accumulator_rd_data <= accumulators(in_zb);
-      end if;
-    end if;
-  end process;
 
   -- Counter update
   process (clk)
@@ -112,6 +88,9 @@ begin
     end if;
   end process;
 
+  accumulator_in      <= to_integer(unsigned(accumulator_rd_data));
+  accumulator_wr_data <= std_logic_vector(to_unsigned(accumulator_out, D+COUNTER_SIZE));
+
   -- Pipeline
   process (clk)
     type code_word_arr_t is array(0 to UMAX - 1) of std_logic_vector(UMAX + D - 1 downto 0);
@@ -124,13 +103,9 @@ begin
         rhs                 <= 0;
         rhs_part            <= 0;
         counter_regs        <= (others => 0);
-        z_regs              <= (others => 0);
         ctrl_regs           <= (others => ('0', '0', '0', '0', 0));
         residual_regs       <= (others => (others => '0'));
         valid_regs          <= (others => '0');
-        accumulator_wr      <= '0';
-        accumulator_wr_data <= 0;
-        accumulator_wr_z    <= 0;
         code_word_cases     <= (others => false);
       else
         --------------------------------------------------------------------------------
@@ -141,7 +116,6 @@ begin
 
         counter_regs(0)  <= counter;
         valid_regs(0)    <= in_valid;
-        z_regs(0)        <= in_zb;
         ctrl_regs(0)     <= in_ctrl;
         residual_regs(0) <= std_logic_vector(in_residual);
 
@@ -149,19 +123,18 @@ begin
         -- Stage 2 - Compute right hand side in the inequalities for
         -- determining k_z(t), compute next accumulator
         --------------------------------------------------------------------------------
-        rhs <= accumulator_rd_data + rhs_part;
+        rhs <= accumulator_in + rhs_part;
 
         if (ctrl_regs(0).first_in_line = '1' and ctrl_regs(0).first_line = '1') then
-          accumulator_wr_data <= ((3 * 2**(KZ_PRIME + 6) - 49) * 2**INITIAL_COUNT) / 2**7;
+          accumulator_out <= ((3 * 2**(KZ_PRIME + 6) - 49) * 2**INITIAL_COUNT) / 2**7;
         else
           if (counter_regs(0) < 2**COUNTER_SIZE - 1) then
-            accumulator_wr_data <= accumulator_rd_data + to_integer(unsigned(residual_regs(0)));
+            accumulator_out <= accumulator_in + to_integer(unsigned(residual_regs(0)));
           else
-            accumulator_wr_data <= (accumulator_rd_data + to_integer(unsigned(residual_regs(0))) + 1) / 2;
+            accumulator_out <= (accumulator_in + to_integer(unsigned(residual_regs(0))) + 1) / 2;
           end if;
         end if;
-        accumulator_wr   <= valid_regs(0);
-        accumulator_wr_z <= z_regs(0);
+        accumulator_wr <= valid_regs(0);
 
         counter_regs(1)  <= counter_regs(0);
         valid_regs(1)    <= valid_regs(0);
