@@ -4,6 +4,8 @@ use IEEE.NUMERIC_STD.all;
 
 entity ccsds123_ip_top is
   generic (
+    PIPELINES     : integer := 1;
+    LITTLE_ENDIAN : boolean := true;
     COL_ORIENTED  : boolean := false;
     REDUCED       : boolean := false;
     OMEGA         : integer := 19;
@@ -26,7 +28,7 @@ entity ccsds123_ip_top is
     aresetn : in std_logic;
 
     -- Input AXI Stream
-    s_axis_tdata  : in  std_logic_vector(D-1 downto 0);
+    s_axis_tdata  : in  std_logic_vector(PIPELINES*D-1 downto 0);
     s_axis_tvalid : in  std_logic;
     s_axis_tready : out std_logic;
 
@@ -58,7 +60,7 @@ architecture rtl of ccsds123_ip_top is
   end component;
 
   signal core_ready : std_logic;
-  signal out_ready : std_logic;
+  signal out_ready  : std_logic;
 
   signal from_core_tdata  : std_logic_vector(63 downto 0);
   signal from_core_tvalid : std_logic;
@@ -72,6 +74,8 @@ begin
 
   i_core : entity work.ccsds123_top
     generic map (
+      PIPELINES     => PIPELINES,
+      LITTLE_ENDIAN => LITTLE_ENDIAN,
       COL_ORIENTED  => COL_ORIENTED,
       REDUCED       => REDUCED,
       OMEGA         => OMEGA,
