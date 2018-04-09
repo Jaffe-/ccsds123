@@ -58,7 +58,7 @@ architecture rtl of ccsds123_top is
 
   signal w_update_wr : std_logic_vector(PIPELINES-1 downto 0);
   signal weights_wr  : signed(PIPELINES*CZ*(OMEGA+3)-1 downto 0);
-  signal weights_rd  : signed(PIPELINES*CZ*(OMEGA+3)-1 downto 0);
+  signal weights_rd  : std_logic_vector(PIPELINES*CZ*(OMEGA+3)-1 downto 0);
 
   signal pipeline_out_valid    : std_logic_vector(PIPELINES-1 downto 0);
   signal pipeline_out_last     : std_logic_vector(PIPELINES-1 downto 0);
@@ -114,7 +114,7 @@ begin
       aresetn => aresetn,
 
       wr      => w_update_wr(0),
-      wr_data => weights_wr,
+      wr_data => std_logic_vector(weights_wr),
 
       rd      => in_handshake,
       rd_data => weights_rd
@@ -206,7 +206,7 @@ begin
         in_sample      => in_tdata((i+1)*D-1 downto i*D),
         in_prev_sample => prev_s,
         in_valid       => in_handshake,
-        in_weights     => weights_rd((i+1)*CZ*(OMEGA+3)-1 downto i*CZ*(OMEGA+3)),
+        in_weights     => signed(weights_rd((i+1)*CZ*(OMEGA+3)-1 downto i*CZ*(OMEGA+3))),
 
         w_update_wr      => w_update_wr(i),
         w_update_weights => weights_wr((i+1)*CZ*(OMEGA+3)-1 downto i*CZ*(OMEGA+3)),

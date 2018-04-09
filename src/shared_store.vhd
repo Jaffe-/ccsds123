@@ -16,17 +16,17 @@ entity shared_store is
     aresetn : in std_logic;
 
     wr      : in std_logic;
-    wr_data : in signed(PIPELINES*ELEMENT_SIZE-1 downto 0);
+    wr_data : in std_logic_vector(PIPELINES*ELEMENT_SIZE-1 downto 0);
 
     rd      : in  std_logic;
-    rd_data : out signed(PIPELINES*ELEMENT_SIZE-1 downto 0)
+    rd_data : out std_logic_vector(PIPELINES*ELEMENT_SIZE-1 downto 0)
     );
 end shared_store;
 
 architecture rtl of shared_store is
-  type delay_stages_t is array (0 to DELAY-1) of signed(PIPELINES*ELEMENT_SIZE-1 downto 0);
+  type delay_stages_t is array (0 to DELAY-1) of std_logic_vector(PIPELINES*ELEMENT_SIZE-1 downto 0);
   signal delay_stages : delay_stages_t;
-  signal rd_data_vec  : signed(PIPELINES*ELEMENT_SIZE-1 downto 0);
+  signal rd_data_vec  : std_logic_vector(PIPELINES*ELEMENT_SIZE-1 downto 0);
 
   signal rd_cnt : integer range 0 to ELEMENTS/PIPELINES-1;
   signal wr_cnt : integer range 0 to ELEMENTS/PIPELINES-1;
@@ -43,11 +43,11 @@ begin
   g_rams : for i in 0 to PIPELINES-1 generate
     -- Write data and address must be remapped based on relationship between
     -- number of pipelines and number of planes in the cube
-    wr_data_arr((i + STEP) mod PIPELINES) <= std_logic_vector(wr_data((i+1)*ELEMENT_SIZE-1 downto i*ELEMENT_SIZE));
+    wr_data_arr((i + STEP) mod PIPELINES) <= wr_data((i+1)*ELEMENT_SIZE-1 downto i*ELEMENT_SIZE);
     wr_idx(i)                             <= wr_cnt when i + STEP < PIPELINES else wrap_inc(wr_cnt, ELEMENTS/PIPELINES-1);
 
     -- Read data maps directly to pipelines
-    rd_data_vec((i+1)*ELEMENT_SIZE-1 downto i*ELEMENT_SIZE) <= signed(rd_data_arr(i));
+    rd_data_vec((i+1)*ELEMENT_SIZE-1 downto i*ELEMENT_SIZE) <= rd_data_arr(i);
 
     i_bram : entity work.dp_bram
       generic map (
