@@ -54,9 +54,6 @@ architecture rtl of ccsds123_top is
   signal in_handshake : std_logic;
   signal in_ready     : std_logic;
 
-  signal from_ctrl_ctrl    : ctrl_t;
-  signal from_ctrl_z_block : integer range 0 to NZ/PIPELINES-1;
-
   signal w_update_wr : std_logic_vector(PIPELINES-1 downto 0);
   signal weights_wr  : signed(PIPELINES*CZ*(OMEGA+3)-1 downto 0);
   signal weights_rd  : std_logic_vector(PIPELINES*CZ*(OMEGA+3)-1 downto 0);
@@ -122,25 +119,6 @@ begin
     in_ready <= not combiner_over_threshold;
   end generate g_nopipe_ctrl;
 
-  i_control : entity work.control
-    generic map (
-      PIPELINES => PIPELINES,
-      V_MIN     => V_MIN,
-      V_MAX     => V_MAX,
-      TINC_LOG  => TINC_LOG,
-      NX        => NX,
-      NY        => NY,
-      NZ        => NZ,
-      CZ        => CZ,
-      D         => D)
-    port map (
-      clk     => clk,
-      aresetn => aresetn,
-
-      tick     => in_handshake,
-      out_ctrl => from_ctrl_ctrl,
-      out_z    => from_ctrl_z_block);
-
   i_weight_store : entity work.shared_store
     generic map (
       PIPELINES    => PIPELINES,
@@ -203,11 +181,9 @@ begin
   end process;
 
   g_pipelines : for i in 0 to PIPELINES-1 generate
-    signal from_ctrl_z        : integer range 0 to NZ-1;
     signal prev_central_diffs : signed(P*(D+3)-1 downto 0);
     signal prev_s             : std_logic_vector(D-1 downto 0);
   begin
-    from_ctrl_z <= PIPELINES * from_ctrl_z_block + i;
 
     -- Order in central difference store must be from most recent sample at
     -- index 0, so reorder it:
@@ -234,30 +210,31 @@ begin
 
     i_pipeline : entity work.pipeline_top
       generic map (
-        PIPELINES     => PIPELINES,
-        LITTLE_ENDIAN => LITTLE_ENDIAN,
-        COL_ORIENTED  => COL_ORIENTED,
-        REDUCED       => REDUCED,
-        OMEGA         => OMEGA,
-        D             => D,
-        P             => P,
-        CZ            => CZ,
-        R             => R,
-        V_MIN         => V_MIN,
-        V_MAX         => V_MAX,
-        UMAX          => UMAX,
-        KZ_PRIME      => KZ_PRIME,
-        COUNTER_SIZE  => COUNTER_SIZE,
-        INITIAL_COUNT => INITIAL_COUNT,
-        NX            => NX,
-        NZ            => NZ
+        PIPELINES      => PIPELINES,
+        PIPELINE_INDEX => i,
+        LITTLE_ENDIAN  => LITTLE_ENDIAN,
+        COL_ORIENTED   => COL_ORIENTED,
+        REDUCED        => REDUCED,
+        OMEGA          => OMEGA,
+        D              => D,
+        P              => P,
+        CZ             => CZ,
+        R              => R,
+        V_MIN          => V_MIN,
+        V_MAX          => V_MAX,
+        TINC_LOG       => TINC_LOG,
+        UMAX           => UMAX,
+        KZ_PRIME       => KZ_PRIME,
+        COUNTER_SIZE   => COUNTER_SIZE,
+        INITIAL_COUNT  => INITIAL_COUNT,
+        NX             => NX,
+        NY             => NY,
+        NZ             => NZ
         )
       port map (
         clk     => clk,
         aresetn => aresetn,
 
-        in_ctrl        => from_ctrl_ctrl,
-        in_z           => from_ctrl_z,
         in_sample      => in_tdata((i+1)*D-1 downto i*D),
         in_prev_sample => prev_s,
         in_valid       => in_handshake,

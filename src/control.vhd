@@ -16,24 +16,25 @@ use work.common.all;
 
 entity control is
   generic (
-    PIPELINES : integer;
-    V_MIN     : integer;
-    V_MAX     : integer;
-    TINC_LOG  : integer;
-    NX        : integer;
-    NY        : integer;
-    NZ        : integer;
-    CZ        : integer;
-    D         : integer
+    PIPELINES      : integer;
+    PIPELINE_INDEX : integer;
+    V_MIN          : integer;
+    V_MAX          : integer;
+    TINC_LOG       : integer;
+    NX             : integer;
+    NY             : integer;
+    NZ             : integer;
+    CZ             : integer;
+    D              : integer
     );
 
   port (
     clk     : in std_logic;
     aresetn : in std_logic;
 
-    tick               : in  std_logic;
+    tick     : in  std_logic;
     out_ctrl : out ctrl_t;
-    out_z    : out integer range 0 to NZ/PIPELINES - 1
+    out_z    : out integer range 0 to NZ - 1
     );
 
 end control;
@@ -52,12 +53,12 @@ begin
       if (aresetn = '0') then
         x <= 0;
         y <= 0;
-        z <= 0;
+        z <= PIPELINE_INDEX;
         t <= 0;
       else
         if (tick = '1') then
-          if (z = Nz/PIPELINES - 1) then
-            z <= 0;
+          if (z + PIPELINES > NZ - 1) then
+            z <= z + PIPELINES - NZ;
             t <= wrap_inc(t, NX*NY-1);
             if (x = Nx - 1) then
               x <= 0;
@@ -70,7 +71,7 @@ begin
               x <= x + 1;
             end if;
           else
-            z <= z + 1;
+            z <= z + PIPELINES;
           end if;
         end if;
       end if;
@@ -97,7 +98,7 @@ begin
       first_pix := '1';
     elsif (x = NX - 1) then
       last_pix := '1';
-      if (y = NY - 1 and z = NZ/PIPELINES - 1) then
+      if (y = NY - 1 and z = NZ - 1) then
         last := tick;
       end if;
     end if;

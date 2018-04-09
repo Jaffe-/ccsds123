@@ -5,30 +5,31 @@ use work.common.all;
 
 entity pipeline_top is
   generic (
-    PIPELINES     : integer := 1;
-    LITTLE_ENDIAN : boolean := true;
-    COL_ORIENTED  : boolean := false;
-    REDUCED       : boolean := false;
-    OMEGA         : integer := 19;
-    D             : integer := 16;
-    P             : integer := 15;
-    CZ            : integer := 18;
-    R             : integer := 64;
-    V_MIN         : integer := -6;
-    V_MAX         : integer := 9;
-    UMAX          : integer := 9;
-    KZ_PRIME      : integer := 8;
-    COUNTER_SIZE  : integer := 8;
-    INITIAL_COUNT : integer := 6;
-    NX            : integer := 500;
-    NZ            : integer := 10
+    PIPELINES      : integer;
+    PIPELINE_INDEX : integer;
+    LITTLE_ENDIAN  : boolean;
+    COL_ORIENTED   : boolean;
+    REDUCED        : boolean;
+    OMEGA          : integer;
+    D              : integer;
+    P              : integer;
+    CZ             : integer;
+    R              : integer;
+    V_MIN          : integer;
+    V_MAX          : integer;
+    TINC_LOG       : integer;
+    UMAX           : integer;
+    KZ_PRIME       : integer;
+    COUNTER_SIZE   : integer;
+    INITIAL_COUNT  : integer;
+    NX             : integer;
+    NY             : integer;
+    NZ             : integer
     );
   port (
     clk     : in std_logic;
     aresetn : in std_logic;
 
-    in_ctrl        : in ctrl_t;
-    in_z           : in integer range 0 to NZ-1;
     in_sample      : in std_logic_vector(D-1 downto 0);
     in_prev_sample : in std_logic_vector(D-1 downto 0);
     in_valid       : in std_logic;
@@ -72,6 +73,9 @@ architecture rtl of pipeline_top is
   signal s_nw : std_logic_vector(D-1 downto 0);
   signal s_w  : std_logic_vector(D-1 downto 0);
 
+  signal from_ctrl_ctrl : ctrl_t;
+  signal from_ctrl_z    : z_type;
+
   signal from_local_diff_ctrl   : ctrl_t;
   signal from_local_diff_valid  : std_logic;
   signal from_local_diff_z      : z_type;
@@ -110,9 +114,25 @@ architecture rtl of pipeline_top is
   signal from_res_mapper_ctrl  : ctrl_t;
 
 begin
+  i_control : entity work.control
+    generic map (
+      PIPELINES      => PIPELINES,
+      PIPELINE_INDEX => PIPELINE_INDEX,
+      V_MIN          => V_MIN,
+      V_MAX          => V_MAX,
+      TINC_LOG       => TINC_LOG,
+      NX             => NX,
+      NY             => NY,
+      NZ             => NZ,
+      CZ             => CZ,
+      D              => D)
+    port map (
+      clk     => clk,
+      aresetn => aresetn,
 
-  w_update_wr      <= from_w_update_valid;
-  w_update_weights <= from_w_update_weights;
+      tick     => in_valid,
+      out_ctrl => from_ctrl_ctrl,
+      out_z    => from_ctrl_z);
 
   i_sample_store : entity work.sample_store
     generic map (
@@ -150,8 +170,8 @@ begin
         s_w       => signed(s_w),
         in_prev_s => signed(in_prev_sample),
         in_valid  => in_valid,
-        in_ctrl   => in_ctrl,
-        in_z      => in_z,
+        in_ctrl   => from_ctrl_ctrl,
+        in_z      => from_ctrl_z,
 
         local_sum  => from_local_diff_locsum,
         d_c        => out_central_diff,
@@ -184,8 +204,8 @@ begin
         s_w       => signed(s_w),
         in_prev_s => signed(in_prev_sample),
         in_valid  => in_valid,
-        in_ctrl   => in_ctrl,
-        in_z      => in_z,
+        in_ctrl   => from_ctrl_ctrl,
+        in_z      => from_ctrl_z,
 
         local_sum  => from_local_diff_locsum,
         d_c        => out_central_diff,
@@ -299,6 +319,9 @@ begin
 
       out_valid   => from_w_update_valid,
       out_weights => from_w_update_weights);
+
+  w_update_wr      <= from_w_update_valid;
+  w_update_weights <= from_w_update_weights;
 
   i_residual_mapper : entity work.residual_mapper
     generic map (
