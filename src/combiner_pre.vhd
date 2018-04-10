@@ -69,6 +69,9 @@ architecture rtl of combiner is
   signal valid_regs   : std_logic_vector(1 downto 0);
   signal last_regs    : std_logic_vector(1 downto 0);
 
+  -- Indication of whether there is some leftover bits to flush when LAST = 1
+  signal last_flush_regs : std_logic_vector(1 downto 0);
+
   signal fifo_rden        : std_logic;
   signal fifo_wren        : std_logic;
   signal fifo_empty       : std_logic;
@@ -99,6 +102,7 @@ begin
         words              <= (others => (others => (others => '0')));
         num_remaining_bits := (others => '0');
         valid_regs         <= (others => '0');
+        last_flush_regs    <= (others => '0');
       else
         --------------------------------------------------------------------------------
         -- Stage 1 - Compute shift amounts and number of blocks
@@ -114,6 +118,9 @@ begin
             num_remaining_bits := sum(BLOCK_SIZE_BITS-1 downto 0);
           end loop;
           if (in_last = '1') then
+            if (num_remaining_bits /= 0) then
+              last_flush_regs(0) <= '1';
+            end if;
             num_remaining_bits := (others => '0');
           end if;
         end if;
@@ -129,8 +136,9 @@ begin
             words(1, i)        <= std_logic_vector(shift_right(unsigned(words(0, i)), shift_arr(i)));
           end loop;
         end if;
-        valid_regs(1) <= valid_regs(0);
-        last_regs(1)  <= last_regs(0);
+        valid_regs(1)      <= valid_regs(0);
+        last_regs(1)       <= last_regs(0);
+        last_flush_regs(1) <= last_flush_regs(0);
 
         --------------------------------------------------------------------------------
         -- Stage 3 - Combine shifted words and extract blocks
@@ -150,7 +158,9 @@ begin
             remaining_bits := temp;
           end loop;
 
-          if (last_regs(1) = '1') then
+          -- If last is 1 and we have some bits left over after extracting
+          -- blocks, then we put these into a new block
+          if (last_regs(1) = '1' and last_flush_regs(1) = '1') then
             full_blocks(count) <= remaining_bits(BLOCK_SIZE+MAX_LENGTH-2 downto MAX_LENGTH-1);
             count              := count + 1;
             remaining_bits     := (others => '0');
