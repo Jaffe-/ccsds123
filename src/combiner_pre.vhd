@@ -13,12 +13,10 @@ use xpm.vcomponents.all;
 
 entity combiner is
   generic (
-    BLOCK_SIZE     : integer := 64;
-    N_WORDS        : integer := 4;
-    MAX_LENGTH     : integer := 30;
-    LITTLE_ENDIAN  : boolean := false;
-    FIFO_DEPTH     : integer := 256;
-    FIFO_THRESHOLD : integer := 30
+    BLOCK_SIZE    : integer;
+    N_WORDS       : integer;
+    MAX_LENGTH    : integer;
+    LITTLE_ENDIAN : boolean
     );
   port (
     clk     : in std_logic;
@@ -38,10 +36,26 @@ entity combiner is
 end combiner;
 
 architecture rtl of combiner is
-  constant LENGTH_BITS         : integer := integer(ceil(log2(real(MAX_LENGTH))));
-  constant BLOCK_SIZE_BITS     : integer := integer(ceil(log2(real(BLOCK_SIZE))));
+  constant LENGTH_BITS         : integer := len2bits(MAX_LENGTH);
+  constant BLOCK_SIZE_BITS     : integer := len2bits(BLOCK_SIZE);
   constant MAX_BLOCKS_PER_WORD : integer := (BLOCK_SIZE + MAX_LENGTH) / BLOCK_SIZE;
   constant MAX_BLOCKS          : integer := (BLOCK_SIZE - 1 + N_WORDS * MAX_LENGTH) / BLOCK_SIZE + 1;
+
+  constant COUNTER_SIZE : integer := len2bits(MAX_BLOCKS);
+
+  constant FIFO_DEPTH : integer := 128;
+
+  -- The FIFO margin is the number of empty spaces in the FIFO when
+  -- over_threshold is asserted. This must be large enough so that the FIFO can
+  -- store the words coming out of the pipelines after the stream coming into
+  -- the core has been stopped.
+  constant FIFO_MARGIN : integer := 30;
+
+  -- Element size in FIFO:
+  --   * Data (blocks): MAX_BLOCKS * BLOCK_SIZE bits
+  --   * Counter:       COUNTER_SIZE bits
+  --   * Last flag:     1 bit
+  constant FIFO_SIZE : integer := MAX_BLOCKS * BLOCK_SIZE + COUNTER_SIZE + 1;
 
   type word_arr_t is array (0 to 1, 0 to N_WORDS-1) of std_logic_vector(BLOCK_SIZE + MAX_LENGTH - 2 downto 0);
   type shift_arr_t is array (0 to N_WORDS-1) of integer range 0 to BLOCK_SIZE-1;
@@ -54,8 +68,6 @@ architecture rtl of combiner is
   signal full_blocks  : full_blocks_t;
   signal valid_regs   : std_logic_vector(1 downto 0);
   signal last_regs    : std_logic_vector(1 downto 0);
-
-  constant FIFO_SIZE : integer := MAX_BLOCKS * BLOCK_SIZE + 5;
 
   signal fifo_rden        : std_logic;
   signal fifo_wren        : std_logic;
@@ -73,7 +85,7 @@ architecture rtl of combiner is
 begin
 
   process (clk)
-    constant SUM_SIZE           : integer := integer(ceil(log2(real(BLOCK_SIZE + MAX_LENGTH))));
+    constant SUM_SIZE           : integer := len2bits(BLOCK_SIZE + MAX_LENGTH);
     variable sum                : unsigned(SUM_SIZE-1 downto 0);
     variable num_remaining_bits : unsigned(BLOCK_SIZE_BITS-1 downto 0);
     variable remaining_bits     : std_logic_vector(BLOCK_SIZE + MAX_LENGTH-2 downto 0);
@@ -160,27 +172,26 @@ begin
     for i in full_blocks'range loop
       fifo_in((i+1)*BLOCK_SIZE-1 downto i*BLOCK_SIZE) <= full_blocks(i);
     end loop;
-    fifo_in(MAX_BLOCKS*BLOCK_SIZE+3 downto MAX_BLOCKS*BLOCK_SIZE) <= std_logic_vector(to_unsigned(to_fifo_count, 4));
-    fifo_in(fifo_in'high)                                         <= to_fifo_last;
+    fifo_in(MAX_BLOCKS*BLOCK_SIZE+COUNTER_SIZE-1 downto MAX_BLOCKS*BLOCK_SIZE) <= std_logic_vector(to_unsigned(to_fifo_count, COUNTER_SIZE));
+    fifo_in(fifo_in'high)                                                      <= to_fifo_last;
   end process;
 
   i_fifo : xpm_fifo_sync
     generic map (
-
-      FIFO_MEMORY_TYPE    => "auto",  --string; "auto", "block", "distributed", or "ultra" ;
-      ECC_MODE            => "no_ecc",  --string; "no_ecc" or "en_ecc";
-      FIFO_WRITE_DEPTH    => FIFO_DEPTH,                   --positive integer
-      WRITE_DATA_WIDTH    => FIFO_SIZE,                    --positive integer
-      WR_DATA_COUNT_WIDTH => 1+integer(log2(real(FIFO_DEPTH))),  --positive integer
-      PROG_FULL_THRESH    => FIFO_DEPTH - FIFO_THRESHOLD,  --positive integer
-      FULL_RESET_VALUE    => 0,         --positive integer; 0 or 1;
-      READ_MODE           => "std",     --string; "std" or "fwft";
-      FIFO_READ_LATENCY   => 1,         --positive integer;
-      READ_DATA_WIDTH     => FIFO_SIZE,                    --positive integer
-      RD_DATA_COUNT_WIDTH => 1+integer(log2(real(FIFO_DEPTH))),  --positive integer
-      PROG_EMPTY_THRESH   => 10,        --positive integer
-      DOUT_RESET_VALUE    => "0",       --string
-      WAKEUP_TIME         => 0          --positive integer; 0 or 2;
+      FIFO_MEMORY_TYPE    => "auto",
+      ECC_MODE            => "no_ecc",
+      FIFO_WRITE_DEPTH    => FIFO_DEPTH,
+      WRITE_DATA_WIDTH    => FIFO_SIZE,
+      WR_DATA_COUNT_WIDTH => 1+integer(log2(real(FIFO_DEPTH))),
+      PROG_FULL_THRESH    => FIFO_DEPTH - FIFO_MARGIN,
+      FULL_RESET_VALUE    => 0,
+      READ_MODE           => "std",
+      FIFO_READ_LATENCY   => 1,
+      READ_DATA_WIDTH     => FIFO_SIZE,
+      RD_DATA_COUNT_WIDTH => 1+integer(log2(real(FIFO_DEPTH))),
+      PROG_EMPTY_THRESH   => 10,
+      DOUT_RESET_VALUE    => "0",
+      WAKEUP_TIME         => 0
       )
     port map (
       rst           => not aresetn,
@@ -207,7 +218,7 @@ begin
       );
 
   fifo_rden       <= '1' when fifo_empty = '0' and (from_fifo_valid = '0' or counter = from_fifo_count - 1) else '0';
-  from_fifo_count <= to_integer(unsigned(fifo_out(fifo_out'high - 1 downto fifo_out'high-4)));
+  from_fifo_count <= to_integer(unsigned(fifo_out(fifo_out'high - 1 downto fifo_out'high - COUNTER_SIZE)));
   from_fifo_last  <= fifo_out(fifo_out'high);
   process (fifo_out)
   begin
