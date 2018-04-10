@@ -44,7 +44,7 @@ begin
     -- Write data and address must be remapped based on relationship between
     -- number of pipelines and number of planes in the cube
     wr_data_arr((i + STEP) mod PIPELINES) <= wr_data((i+1)*ELEMENT_SIZE-1 downto i*ELEMENT_SIZE);
-    wr_idx(i)                             <= wr_cnt when i + STEP < PIPELINES else wrap_inc(wr_cnt, ELEMENTS/PIPELINES-1);
+    wr_idx((i + STEP) mod PIPELINES)      <= wr_cnt when i + STEP < PIPELINES else wrap_inc(wr_cnt, ELEMENTS/PIPELINES-1);
 
     -- Read data maps directly to pipelines
     rd_data_vec((i+1)*ELEMENT_SIZE-1 downto i*ELEMENT_SIZE) <= rd_data_arr(i);
