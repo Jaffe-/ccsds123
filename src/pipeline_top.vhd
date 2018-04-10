@@ -60,11 +60,6 @@ entity pipeline_top is
 end pipeline_top;
 
 architecture rtl of pipeline_top is
-  function blk_idx(z : integer) return integer is
-  begin
-    return z / PIPELINES;
-  end function blk_idx;
-
   subtype z_type is integer range 0 to NZ-1;
   subtype sample_type is signed(D-1 downto 0);
   subtype locsum_type is signed(D+2 downto 0);
