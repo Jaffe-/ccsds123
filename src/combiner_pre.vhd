@@ -169,15 +169,15 @@ begin
 
       FIFO_MEMORY_TYPE    => "auto",  --string; "auto", "block", "distributed", or "ultra" ;
       ECC_MODE            => "no_ecc",  --string; "no_ecc" or "en_ecc";
-      FIFO_WRITE_DEPTH    => FIFO_DEPTH,      --positive integer
-      WRITE_DATA_WIDTH    => FIFO_SIZE,       --positive integer
-      WR_DATA_COUNT_WIDTH => 9,         --positive integer
-      PROG_FULL_THRESH    => FIFO_THRESHOLD,  --positive integer
+      FIFO_WRITE_DEPTH    => FIFO_DEPTH,                   --positive integer
+      WRITE_DATA_WIDTH    => FIFO_SIZE,                    --positive integer
+      WR_DATA_COUNT_WIDTH => 1+integer(log2(real(FIFO_DEPTH))),  --positive integer
+      PROG_FULL_THRESH    => FIFO_DEPTH - FIFO_THRESHOLD,  --positive integer
       FULL_RESET_VALUE    => 0,         --positive integer; 0 or 1;
       READ_MODE           => "std",     --string; "std" or "fwft";
       FIFO_READ_LATENCY   => 1,         --positive integer;
-      READ_DATA_WIDTH     => FIFO_SIZE,       --positive integer
-      RD_DATA_COUNT_WIDTH => 9,         --positive integer
+      READ_DATA_WIDTH     => FIFO_SIZE,                    --positive integer
+      RD_DATA_COUNT_WIDTH => 1+integer(log2(real(FIFO_DEPTH))),  --positive integer
       PROG_EMPTY_THRESH   => 10,        --positive integer
       DOUT_RESET_VALUE    => "0",       --string
       WAKEUP_TIME         => 0          --positive integer; 0 or 2;
