@@ -5,10 +5,10 @@ use work.common.all;
 
 entity shared_store is
   generic (
-    PIPELINES    : integer := 1;
-    DELAY        : integer := 1;
-    ELEMENT_SIZE : integer := 1;
-    ELEMENTS     : integer := 100
+    PIPELINES    : integer;
+    DELAY        : integer;
+    ELEMENT_SIZE : integer;
+    ELEMENTS     : integer
     );
 
   port (
