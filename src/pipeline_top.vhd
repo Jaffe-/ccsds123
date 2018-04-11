@@ -85,6 +85,7 @@ architecture rtl of pipeline_top is
   signal from_local_diff_prev_s : sample_type;
   signal from_local_diff_locsum : locsum_type;
 
+  signal central_diffs     : signed(P*(D+3)-1 downto 0);
   signal local_diffs       : signed(CZ*(D+3)-1 downto 0);
   signal from_dot_pred_d_c : signed(D+3+OMEGA+3+CZ-1-1 downto 0);
   signal from_dot_valid    : std_logic;
@@ -164,27 +165,29 @@ begin
 
   out_central_diff_valid <= from_local_diff_valid;
 
-  process (in_prev_central_diffs, from_local_diff_z, d_n, d_w, d_nw)
-  begin
-    if (not REDUCED) then
-      local_diffs((P+3)*(D+3)-1 downto (P+2)*(D+3)) <= d_n;
-      local_diffs((P+2)*(D+3)-1 downto (P+1)*(D+3)) <= d_w;
-      local_diffs((P+1)*(D+3)-1 downto P*(D+3))     <= d_nw;
-    end if;
+  g_add_dir_diffs : if (not REDUCED) generate
+    local_diffs <= d_n & d_w & d_nw & central_diffs;
+  end generate g_add_dir_diffs;
 
-    if (P > 0) then
+  g_no_dir_diffs : if (REDUCED) generate
+    local_diffs <= central_diffs;
+  end generate g_no_dir_diffs;
+
+  g_add_central_diffs : if (P > 0) generate
+    process (in_prev_central_diffs, from_local_diff_z)
+    begin
       if (from_local_diff_z >= P) then
-        local_diffs(P*(D+3)-1 downto 0) <= in_prev_central_diffs;
+        central_diffs(P*(D+3)-1 downto 0) <= in_prev_central_diffs;
       else
-        local_diffs(P*(D+3)-1 downto 0) <= (others => '0');
+        central_diffs(P*(D+3)-1 downto 0) <= (others => '0');
         for i in 1 to P-1 loop
           if (from_local_diff_z >= i) then
-            local_diffs(i*(D+3)-1 downto 0) <= in_prev_central_diffs(i*(D+3)-1 downto 0);
+            central_diffs(i*(D+3)-1 downto 0) <= in_prev_central_diffs(i*(D+3)-1 downto 0);
           end if;
         end loop;
       end if;
-    end if;
-  end process;
+    end process;
+  end generate g_add_central_diffs;
 
   g_dot : if (CZ > 0) generate
     i_dot : entity work.dot_product
