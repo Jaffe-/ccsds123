@@ -6,47 +6,42 @@ use work.common.all;
 
 entity dot_product is
   generic (
-    N      : integer;
-    A_SIZE : integer;
-    B_SIZE : integer;
-    NX     : integer;
-    NZ     : integer;
-    D      : integer;
-    CZ     : integer;
-    OMEGA  : integer
+    NX    : integer;
+    NZ    : integer;
+    D     : integer;
+    CZ    : integer;
+    OMEGA : integer
     );
 
   port (
     clk     : in std_logic;
     aresetn : in std_logic;
 
-    a       : in  signed(N*A_SIZE-1 downto 0);
-    a_valid : in  std_logic;
-    b       : in  signed(N*B_SIZE-1 downto 0);
-    b_valid : in  std_logic;
-    s       : out signed(A_SIZE + B_SIZE + N-1 - 1 downto 0);
-    s_valid : out std_logic;
-
+    in_valid   : in std_logic;
+    in_diffs   : in signed(CZ*(D+3)-1 downto 0);
+    in_weights : in signed(CZ*(OMEGA+3)-1 downto 0);
     in_locsum  : in signed(D+2 downto 0);
     in_ctrl    : in ctrl_t;
     in_z       : in integer range 0 to NZ-1;
     in_s       : in signed(D-1 downto 0);
     in_prev_s  : in signed(D-1 downto 0);
-    in_weights : in signed(CZ*(OMEGA+3)-1 downto 0);
-    in_diffs   : in signed(CZ*(D+3)-1 downto 0);
 
-    out_locsum  : out signed(D+2 downto 0);
-    out_ctrl    : out ctrl_t;
-    out_z       : out integer range 0 to NZ-1;
-    out_s       : out signed(D-1 downto 0);
-    out_prev_s  : out signed(D-1 downto 0);
-    out_weights : out signed(CZ*(OMEGA+3)-1 downto 0);
-    out_diffs   : out signed(CZ*(D+3)-1 downto 0)
+    out_valid    : out std_logic;
+    out_pred_d_c : out signed(D+3+OMEGA+3+CZ-1-1 downto 0);
+    out_locsum   : out signed(D+2 downto 0);
+    out_ctrl     : out ctrl_t;
+    out_z        : out integer range 0 to NZ-1;
+    out_s        : out signed(D-1 downto 0);
+    out_prev_s   : out signed(D-1 downto 0);
+    out_weights  : out signed(CZ*(OMEGA+3)-1 downto 0);
+    out_diffs    : out signed(CZ*(D+3)-1 downto 0)
     );
 end dot_product;
 
 architecture rtl of dot_product is
-  constant STAGES   : integer := integer(ceil(log2(real(N))));
+  constant STAGES      : integer := integer(ceil(log2(real(CZ))));
+  constant RESULT_SIZE : integer := D+3+OMEGA+3+CZ-1;
+
   signal valid_regs : std_logic_vector(STAGES downto 0);
 
   type side_data_t is record
@@ -63,10 +58,9 @@ architecture rtl of dot_product is
 
   signal side_data_regs : side_data_arr_t;
 
-  type s_vec_t is array(0 to 2**(STAGES+1)-2) of signed(A_SIZE+B_SIZE+N-1-1 downto 0);
+  type s_vec_t is array(0 to 2**(STAGES+1)-2) of signed(RESULT_SIZE-1 downto 0);
   signal sums : s_vec_t;
 
-  constant RESULT_SIZE : integer := A_SIZE+B_SIZE+N-1;
 begin
 
   -- Generate the pipeline stages
@@ -77,7 +71,7 @@ begin
   begin
     if (rising_edge(clk)) then
       if (aresetn = '0') then
-        sums       <= (others => to_signed(0, A_SIZE+B_SIZE+N-1));
+        sums       <= (others => to_signed(0, RESULT_SIZE-1));
         valid_regs <= (others => '0');
       else
         side_data_regs(0) <= (
@@ -88,11 +82,11 @@ begin
           weights => in_weights,
           diffs   => in_diffs,
           locsum  => in_locsum);
-        valid_regs(0) <= a_valid and b_valid;
+        valid_regs(0) <= in_valid;
 
         for i in 0 to 2**STAGES-1 loop
-          if (i < N) then
-            sums(i) <= resize(a((i+1)*A_SIZE-1 downto i*A_SIZE) * b((i+1)*B_SIZE-1 downto i*B_SIZE), RESULT_SIZE);
+          if (i < CZ) then
+            sums(i) <= resize(in_diffs((i+1)*(D+3)-1 downto i*(D+3)) * in_weights((i+1)*(OMEGA+3)-1 downto i*(OMEGA+3)), RESULT_SIZE);
           else
             sums(i) <= to_signed(0, RESULT_SIZE);
           end if;
@@ -111,8 +105,8 @@ begin
   end process;
 
   -- The last index of the sums array is the final sum
-  s       <= sums(sums'high);
-  s_valid <= valid_regs(STAGES);
+  out_pred_d_c <= sums(sums'high);
+  out_valid    <= valid_regs(STAGES);
 
   out_ctrl    <= side_data_regs(STAGES).ctrl;
   out_z       <= side_data_regs(STAGES).z;

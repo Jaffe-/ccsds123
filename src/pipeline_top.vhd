@@ -85,16 +85,16 @@ architecture rtl of pipeline_top is
   signal from_local_diff_prev_s : sample_type;
   signal from_local_diff_locsum : locsum_type;
 
-  signal local_diffs      : signed(CZ*(D+3)-1 downto 0);
-  signal pred_d_c         : signed(D+3+OMEGA+3+CZ-1-1 downto 0);
-  signal from_dot_valid   : std_logic;
-  signal from_dot_ctrl    : ctrl_t;
-  signal from_dot_s       : sample_type;
-  signal from_dot_prev_s  : sample_type;
-  signal from_dot_locsum  : locsum_type;
-  signal from_dot_z       : z_type;
-  signal from_dot_weights : weights_type;
-  signal from_dot_diffs   : diffs_type;
+  signal local_diffs       : signed(CZ*(D+3)-1 downto 0);
+  signal from_dot_pred_d_c : signed(D+3+OMEGA+3+CZ-1-1 downto 0);
+  signal from_dot_valid    : std_logic;
+  signal from_dot_ctrl     : ctrl_t;
+  signal from_dot_s        : sample_type;
+  signal from_dot_prev_s   : sample_type;
+  signal from_dot_locsum   : locsum_type;
+  signal from_dot_z        : z_type;
+  signal from_dot_weights  : weights_type;
+  signal from_dot_diffs    : diffs_type;
 
   signal from_pred_valid   : std_logic;
   signal from_pred_pred_s  : signed(D downto 0);
@@ -192,50 +192,43 @@ begin
   g_dot : if (CZ > 0) generate
     i_dot : entity work.dot_product
       generic map (
-        N      => CZ,
-        A_SIZE => D+3,
-        B_SIZE => OMEGA+3,
-        NX     => NX,
-        NZ     => NZ,
-        D      => D,
-        CZ     => CZ,
-        OMEGA  => OMEGA)
+        NX    => NX,
+        NZ    => NZ,
+        D     => D,
+        CZ    => CZ,
+        OMEGA => OMEGA)
       port map (
         clk     => clk,
         aresetn => aresetn,
 
-        a       => local_diffs,
-        a_valid => from_local_diff_valid,
-        b       => in_weights,
-        b_valid => '1',
-        s       => pred_d_c,
-        s_valid => from_dot_valid,
-
+        in_valid   => from_local_diff_valid,
+        in_diffs   => local_diffs,
+        in_weights => in_weights,
         in_locsum  => from_local_diff_locsum,
         in_ctrl    => from_local_diff_ctrl,
         in_z       => from_local_diff_z,
         in_prev_s  => from_local_diff_prev_s,
         in_s       => from_local_diff_s,
-        in_weights => in_weights,
-        in_diffs   => local_diffs,
 
-        out_locsum  => from_dot_locsum,
-        out_ctrl    => from_dot_ctrl,
-        out_z       => from_dot_z,
-        out_s       => from_dot_s,
-        out_prev_s  => from_dot_prev_s,
-        out_weights => from_dot_weights,
-        out_diffs   => from_dot_diffs);
+        out_valid    => from_dot_valid,
+        out_pred_d_c => from_dot_pred_d_c,
+        out_locsum   => from_dot_locsum,
+        out_ctrl     => from_dot_ctrl,
+        out_z        => from_dot_z,
+        out_s        => from_dot_s,
+        out_prev_s   => from_dot_prev_s,
+        out_weights  => from_dot_weights,
+        out_diffs    => from_dot_diffs);
   end generate g_dot;
 
   g_no_dot : if (CZ = 0) generate
-    pred_d_c        <= (others => '0');
-    from_dot_valid  <= from_local_diff_valid;
-    from_dot_locsum <= from_local_diff_locsum;
-    from_dot_ctrl   <= from_local_diff_ctrl;
-    from_dot_z      <= from_local_diff_z;
-    from_dot_s      <= from_local_diff_s;
-    from_dot_prev_s <= from_local_diff_prev_s;
+    from_dot_pred_d_c <= (others => '0');
+    from_dot_valid    <= from_local_diff_valid;
+    from_dot_locsum   <= from_local_diff_locsum;
+    from_dot_ctrl     <= from_local_diff_ctrl;
+    from_dot_z        <= from_local_diff_z;
+    from_dot_s        <= from_local_diff_s;
+    from_dot_prev_s   <= from_local_diff_prev_s;
   end generate g_no_dot;
 
   i_predictor : entity work.predictor
@@ -252,7 +245,7 @@ begin
       aresetn => aresetn,
 
       in_valid => from_dot_valid,
-      in_d_c   => pred_d_c,
+      in_d_c   => from_dot_pred_d_c,
 
       in_locsum  => from_dot_locsum,
       in_z       => from_dot_z,
