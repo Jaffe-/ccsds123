@@ -133,82 +133,52 @@ begin
       out_ctrl => from_ctrl_ctrl,
       out_z    => from_ctrl_z);
 
-  g_local_diff_full : if (not REDUCED) generate
-    i_local_diff : entity work.local_diff
-      generic map (
-        COL_ORIENTED => COL_ORIENTED,
-        NX           => NX,
-        NZ           => NZ,
-        CZ           => CZ,
-        D            => D)
-      port map (
-        clk     => clk,
-        aresetn => aresetn,
+  i_local_diff : entity work.local_diff
+    generic map (
+      COL_ORIENTED => COL_ORIENTED,
+      NX           => NX,
+      NZ           => NZ,
+      CZ           => CZ,
+      D            => D)
+    port map (
+      clk     => clk,
+      aresetn => aresetn,
 
-        s_cur     => signed(in_s),
-        s_ne      => signed(in_s_ne),
-        s_n       => signed(in_s_n),
-        s_nw      => signed(in_s_nw),
-        s_w       => signed(in_s_w),
-        in_prev_s => signed(in_prev_sample),
-        in_valid  => in_valid,
-        in_ctrl   => from_ctrl_ctrl,
-        in_z      => from_ctrl_z,
+      s_cur     => signed(in_s),
+      s_ne      => signed(in_s_ne),
+      s_n       => signed(in_s_n),
+      s_nw      => signed(in_s_nw),
+      s_w       => signed(in_s_w),
+      in_prev_s => signed(in_prev_sample),
+      in_valid  => in_valid,
+      in_ctrl   => from_ctrl_ctrl,
+      in_z      => from_ctrl_z,
 
-        local_sum  => from_local_diff_locsum,
-        d_c        => out_central_diff,
-        d_n        => d_n,
-        d_w        => d_w,
-        d_nw       => d_nw,
-        out_valid  => from_local_diff_valid,
-        out_ctrl   => from_local_diff_ctrl,
-        out_z      => from_local_diff_z,
-        out_s      => from_local_diff_s,
-        out_prev_s => from_local_diff_prev_s);
-  end generate g_local_diff_full;
-
-  g_local_diff_reduced : if (REDUCED) generate
-    i_local_diff : entity work.local_diff
-      generic map (
-        COL_ORIENTED => COL_ORIENTED,
-        NX           => NX,
-        NZ           => NZ,
-        CZ           => CZ,
-        D            => D)
-      port map (
-        clk     => clk,
-        aresetn => aresetn,
-
-        s_cur     => signed(in_s),
-        s_ne      => signed(in_s_ne),
-        s_n       => signed(in_s_n),
-        s_nw      => signed(in_s_nw),
-        s_w       => signed(in_s_w),
-        in_prev_s => signed(in_prev_sample),
-        in_valid  => in_valid,
-        in_ctrl   => from_ctrl_ctrl,
-        in_z      => from_ctrl_z,
-
-        local_sum  => from_local_diff_locsum,
-        d_c        => out_central_diff,
-        d_n        => open,
-        d_w        => open,
-        d_nw       => open,
-        out_valid  => from_local_diff_valid,
-        out_ctrl   => from_local_diff_ctrl,
-        out_z      => from_local_diff_z,
-        out_s      => from_local_diff_s,
-        out_prev_s => from_local_diff_prev_s);
-  end generate g_local_diff_reduced;
+      local_sum  => from_local_diff_locsum,
+      d_c        => out_central_diff,
+      d_n        => d_n,
+      d_w        => d_w,
+      d_nw       => d_nw,
+      out_valid  => from_local_diff_valid,
+      out_ctrl   => from_local_diff_ctrl,
+      out_z      => from_local_diff_z,
+      out_s      => from_local_diff_s,
+      out_prev_s => from_local_diff_prev_s);
 
   out_central_diff_valid <= from_local_diff_valid;
 
-  g_add_central_diffs : if (P > 0) generate
-    process (in_prev_central_diffs, from_local_diff_z, d_n, d_w, d_nw)
+  g_add_dir_diffs : if (not REDUCED) generate
+    process (d_n, d_w, d_nw)
     begin
       local_diffs((P+3)*(D+3)-1 downto (P+2)*(D+3)) <= d_n;
       local_diffs((P+2)*(D+3)-1 downto (P+1)*(D+3)) <= d_w;
       local_diffs((P+1)*(D+3)-1 downto P*(D+3))     <= d_nw;
+    end process;
+  end generate g_add_dir_diffs;
+
+  g_add_central_diffs : if (P > 0) generate
+    process (in_prev_central_diffs, from_local_diff_z)
+    begin
       if (from_local_diff_z >= P) then
         local_diffs(P*(D+3)-1 downto 0) <= in_prev_central_diffs;
       else
