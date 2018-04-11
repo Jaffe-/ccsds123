@@ -54,9 +54,9 @@ architecture rtl of ccsds123_top is
   signal in_handshake : std_logic;
   signal in_ready     : std_logic;
 
-  signal w_update_wr : std_logic_vector(PIPELINES-1 downto 0);
-  signal weights_wr  : signed(PIPELINES*CZ*(OMEGA+3)-1 downto 0);
-  signal weights_rd  : std_logic_vector(PIPELINES*CZ*(OMEGA+3)-1 downto 0);
+  signal weights_wr      : std_logic_vector(PIPELINES-1 downto 0);
+  signal weights_wr_data : signed(PIPELINES*CZ*(OMEGA+3)-1 downto 0);
+  signal weights_rd_data : std_logic_vector(PIPELINES*CZ*(OMEGA+3)-1 downto 0);
 
   signal accumulator_wr      : std_logic_vector(PIPELINES-1 downto 0);
   signal accumulator_wr_data : std_logic_vector(PIPELINES*(D+COUNTER_SIZE)-1 downto 0);
@@ -106,9 +106,9 @@ begin
         if (aresetn = '0') then
           count <= 0;
         else
-          if (in_handshake = '1' and w_update_wr(0) = '0') then
+          if (in_handshake = '1' and weights_wr(0) = '0') then
             count <= count + 1;
-          elsif (w_update_wr(0) = '1' and in_handshake = '0') then
+          elsif (weights_wr(0) = '1' and in_handshake = '0') then
             count <= count - 1;
           end if;
         end if;
@@ -150,11 +150,11 @@ begin
       clk     => clk,
       aresetn => aresetn,
 
-      wr      => w_update_wr(0),
-      wr_data => std_logic_vector(weights_wr),
+      wr      => weights_wr(0),
+      wr_data => std_logic_vector(weights_wr_data),
 
       rd      => in_handshake,
-      rd_data => weights_rd
+      rd_data => weights_rd_data
       );
 
   i_local_diff_store : entity work.local_diff_store
@@ -261,10 +261,10 @@ begin
         in_s_w         => from_sample_store_w((i+1)*D-1 downto i*D),
         in_prev_sample => prev_s,
         in_valid       => in_handshake,
-        in_weights     => signed(weights_rd((i+1)*CZ*(OMEGA+3)-1 downto i*CZ*(OMEGA+3))),
+        in_weights     => signed(weights_rd_data((i+1)*CZ*(OMEGA+3)-1 downto i*CZ*(OMEGA+3))),
 
-        w_update_wr      => w_update_wr(i),
-        w_update_weights => weights_wr((i+1)*CZ*(OMEGA+3)-1 downto i*CZ*(OMEGA+3)),
+        weights_wr      => weights_wr(i),
+        weights_wr_data => weights_wr_data((i+1)*CZ*(OMEGA+3)-1 downto i*CZ*(OMEGA+3)),
 
         accumulator_wr      => accumulator_wr(i),
         accumulator_wr_data => accumulator_wr_data((i+1)*(D+COUNTER_SIZE)-1 downto i*(D+COUNTER_SIZE)),

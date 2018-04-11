@@ -40,8 +40,8 @@ entity pipeline_top is
     in_weights     : in signed(CZ*(OMEGA+3)-1 downto 0);
 
     -- Intermediate signals
-    w_update_wr      : out std_logic;
-    w_update_weights : out signed(CZ*(OMEGA+3)-1 downto 0);
+    weights_wr      : out std_logic;
+    weights_wr_data : out signed(CZ*(OMEGA+3)-1 downto 0);
 
     accumulator_rd      : out std_logic;
     accumulator_rd_data : in  std_logic_vector(D+COUNTER_SIZE-1 downto 0);
@@ -229,13 +229,13 @@ begin
   end generate g_dot;
 
   g_no_dot : if (CZ = 0) generate
-    pred_d_c         <= (others => '0');
-    from_dot_valid   <= from_local_diff_valid;
-    from_dot_locsum  <= from_local_diff_locsum;
-    from_dot_ctrl    <= from_local_diff_ctrl;
-    from_dot_z       <= from_local_diff_z;
-    from_dot_s       <= from_local_diff_s;
-    from_dot_prev_s  <= from_local_diff_prev_s;
+    pred_d_c        <= (others => '0');
+    from_dot_valid  <= from_local_diff_valid;
+    from_dot_locsum <= from_local_diff_locsum;
+    from_dot_ctrl   <= from_local_diff_ctrl;
+    from_dot_z      <= from_local_diff_z;
+    from_dot_s      <= from_local_diff_s;
+    from_dot_prev_s <= from_local_diff_prev_s;
   end generate g_no_dot;
 
   i_predictor : entity work.predictor
@@ -296,8 +296,8 @@ begin
         out_valid   => from_w_update_valid,
         out_weights => from_w_update_weights);
 
-    w_update_wr      <= from_w_update_valid;
-    w_update_weights <= from_w_update_weights;
+    weights_wr      <= from_w_update_valid;
+    weights_wr_data <= from_w_update_weights;
   end generate g_weight_update;
 
   i_residual_mapper : entity work.residual_mapper
