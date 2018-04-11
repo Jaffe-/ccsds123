@@ -24,7 +24,6 @@ entity control is
     NX             : integer;
     NY             : integer;
     NZ             : integer;
-    CZ             : integer;
     D              : integer
     );
 

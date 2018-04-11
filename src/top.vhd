@@ -78,7 +78,15 @@ architecture rtl of ccsds123_top is
 
   signal prev_s_reg : std_logic_vector(D-1 downto 0);
 
-  constant C_INCL_PIPE_CTRL : boolean := NZ/PIPELINES < 3 + (1 + integer(ceil(log2(real(CZ))))) + 2 + 3 + 1;
+  -- Stall input if the pipeline is deeper than NZ, and we have filled up NZ
+  -- components already
+  --
+  --  Local diff calculations: 3
+  --  Dot product:             ceil(log2(CZ))
+  --  Predictor:               2
+  --  Weight update:           3
+  --  Weight storage:          1
+  constant C_INCL_PIPE_CTRL : boolean := CZ > 0 and NZ/PIPELINES < 3 + (1 + integer(ceil(log2(real(CZ))))) + 2 + 3 + 1;
 
   signal from_sample_store_ne : std_logic_vector(PIPELINES*D-1 downto 0);
   signal from_sample_store_nw : std_logic_vector(PIPELINES*D-1 downto 0);
@@ -89,14 +97,6 @@ begin
   in_handshake <= in_tvalid and in_ready;
   in_tready    <= in_ready;
 
-  -- Stall input if the pipeline is deeper than NZ, and we have filled up NZ
-  -- components already
-  --
-  --  Local diff calculations: 3
-  --  Dot product:             ceil(log2(CZ))
-  --  Predictor:               2
-  --  Weight update:           3
-  --  Weight storage:          1
   g_pipe_ctrl : if (C_INCL_PIPE_CTRL) generate
     signal count : integer range 0 to NZ;
   begin

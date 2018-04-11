@@ -13,9 +13,7 @@ use work.common.all;
 entity local_diff is
   generic (
     COL_ORIENTED : boolean;
-    NX           : integer;
     NZ           : integer;
-    CZ           : integer;
     D            : integer
     );
   port (
