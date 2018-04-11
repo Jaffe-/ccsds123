@@ -111,19 +111,25 @@ module top_tb;
 
    integer byte_idx, j;
    integer prev_done;
+   integer out_cycles, out_valid_cycles;
    reg [200*8:0] out_filename;
    reg [200*8:0] out_dir;
+
    initial begin
       if (!$value$plusargs("OUT_DIR=%s", out_dir)) begin
          out_dir = ".";
       end
       for (j = 0; j < 2; j = j + 1) begin
+         out_cycles = 0;
+         out_valid_cycles = 0;
          $sformat(out_filename, "%0s/out_%0d.bin", out_dir, j);
          f_out = $fopen(out_filename, "wb");
          while (prev_done || (res_valid !== 1'b1 || res_last !== 1'b1)) begin
             prev_done = 0;
             @(posedge clk);
+            out_cycles = out_cycles + 1;
             if (res_valid) begin
+               out_valid_cycles = out_valid_cycles + 1;
                for (byte_idx = 0; byte_idx < BUS_WIDTH/8; byte_idx = byte_idx + 1) begin
                   $fwrite(f_out, "%c", res[byte_idx*8+:8]);
                end
@@ -134,7 +140,8 @@ module top_tb;
          $fclose(f_out);
 
       end
-      $display("Done. Stalled %0d of %0d cycles (%f%%)", stalled_cycles, total_cycles, stalled_cycles / $itor(total_cycles));
+      $display("Stalled %0d of %0d cycles (%f%%)", stalled_cycles, total_cycles, stalled_cycles / $itor(total_cycles));
+      $display("Output valid %0d of %0d cycles (%f%%)", out_valid_cycles, out_cycles, out_valid_cycles / $itor(out_cycles));
       $finish;
    end;
 endmodule // top_tb
