@@ -53,6 +53,7 @@ module top_tb;
    integer          i, wr_i, iter;
    integer          f_in, f_out;
    reg[200*8:0]    in_filename;
+   integer         stalled_cycles, total_cycles;
 
    initial begin
       clk <= 1'b0;
@@ -74,6 +75,8 @@ module top_tb;
       end
 
       for (iter = 0; iter < 2; iter = iter + 1) begin
+         stalled_cycles = 0;
+         total_cycles = 0;
          $display("Starting iteration %0d", iter);
          $fseek(f_in, 0, 0);
 
@@ -84,6 +87,7 @@ module top_tb;
          s_axis_tvalid <= 1'b1;
          while (!$feof(f_in)) begin
             @(posedge clk);
+            total_cycles = total_cycles + 1;
             if (s_axis_tready) begin
                if ((BUBBLES || $test$plusargs("BUBBLES")) && $urandom % 3 != 0) begin
                   s_axis_tvalid <= 1'b0;
@@ -94,6 +98,8 @@ module top_tb;
                   end
                   s_axis_tvalid <= 1'b1;
                end
+            end else begin
+               stalled_cycles = stalled_cycles + 1;
             end
          end
       end
@@ -126,7 +132,9 @@ module top_tb;
          prev_done = 1;
          $display("Done with iteration %0d", j);
          $fclose(f_out);
+
       end
+      $display("Done. Stalled %0d of %0d cycles (%f%%)", stalled_cycles, total_cycles, stalled_cycles / $itor(total_cycles));
       $finish;
    end;
 endmodule // top_tb
