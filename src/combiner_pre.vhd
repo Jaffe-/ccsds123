@@ -120,6 +120,8 @@ begin
           if (in_last = '1') then
             if (num_remaining_bits /= 0) then
               last_flush_regs(0) <= '1';
+            else
+              last_flush_regs(0) <= '0';
             end if;
             num_remaining_bits := (others => '0');
           end if;

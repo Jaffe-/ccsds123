@@ -52,7 +52,6 @@ architecture rtl of local_diff is
 
   -- Registers to keep control signals in sync with data
   type side_data_t is record
-    valid  : std_logic;
     ctrl   : ctrl_t;
     z      : integer range 0 to NZ-1;
     s      : signed(D-1 downto 0);
@@ -61,6 +60,7 @@ architecture rtl of local_diff is
 
   type side_data_arr_t is array(0 to 2) of side_data_t;
   signal side_data_regs : side_data_arr_t;
+  signal valid_regs     : std_logic_vector(2 downto 0);
 
   subtype sample_range is integer range -2**(D-1) to 2**(D-1)-1;
   type sample_arr_t is array(0 to 1) of sample_range;
@@ -80,23 +80,7 @@ begin
   begin
     if (rising_edge(clk)) then
       if (aresetn = '0') then
-        local_sum_reg   <= 0;
-        local_sum_term1 <= 0;
-        local_sum_term2 <= 0;
-        d_c             <= to_signed(0, D+3);
-        d_n             <= to_signed(0, D+3);
-        d_w             <= to_signed(0, D+3);
-        d_nw            <= to_signed(0, D+3);
-        side_data_regs <= (others => (
-          valid                   => '0',
-          ctrl                    => ('0', '0', '0', '0', 0),
-          z                       => 0,
-          s                       => (others => '0'),
-          prev_s                  => (others => '0')));
-        s_cur_regs <= (others => 0);
-        s_n_regs   <= (others => 0);
-        s_nw_regs  <= (others => 0);
-        s_w_regs   <= (others => 0);
+        valid_regs <= (others => '0');
       else
         s_cur_i := to_integer(signed(s_cur));
         s_n_i   := to_integer(signed(s_n));
@@ -130,11 +114,12 @@ begin
         end if;
 
         side_data_regs(0) <= (
-          valid  => in_valid,
           ctrl   => in_ctrl,
           z      => in_z,
           s      => s_cur,
           prev_s => in_prev_s);
+
+        valid_regs(0) <= in_valid;
 
         s_cur_regs(0) <= s_cur_i;
         s_n_regs(0)   <= s_n_i;
@@ -144,9 +129,10 @@ begin
         --------------------------------------------------------------------------------
         -- Stage 2 - Compute local sum from the two terms from previous stage
         --------------------------------------------------------------------------------
-        local_sum_reg     <= local_sum_term1 + local_sum_term2;
         side_data_regs(1) <= side_data_regs(0);
+        valid_regs(1)     <= valid_regs(0);
 
+        local_sum_reg <= local_sum_term1 + local_sum_term2;
         s_cur_regs(1) <= s_cur_regs(0);
         s_n_regs(1)   <= s_n_regs(0);
         s_nw_regs(1)  <= s_nw_regs(0);
@@ -184,11 +170,12 @@ begin
         end if;
 
         side_data_regs(2) <= side_data_regs(1);
+        valid_regs(2)     <= valid_regs(1);
       end if;
     end if;
   end process;
 
-  out_valid  <= side_data_regs(2).valid;
+  out_valid  <= valid_regs(2);
   out_ctrl   <= side_data_regs(2).ctrl;
   out_z      <= side_data_regs(2).z;
   out_s      <= side_data_regs(2).s;

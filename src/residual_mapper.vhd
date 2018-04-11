@@ -51,12 +51,7 @@ begin
   begin
     if (rising_edge(clk)) then
       if (aresetn = '0') then
-        residual             <= (others => '0');
-        theta                <= 0;
         valid_reg            <= '0';
-        in_scaled_pred_s_odd <= '0';
-        ctrl_reg             <= ('0', '0', '0', '0', 0);
-        z_reg                <= 0;
       else
         --------------------------------------------------------------------------------
         -- Stage 1 - compute residual and Theta

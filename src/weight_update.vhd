@@ -91,11 +91,7 @@ begin
   begin
     if (rising_edge(clk)) then
       if (aresetn = '0') then
-        sgn_error   <= '0';
-        diff_regs   <= (others => (others => '0'));
-        weight_regs <= (others => (others => (others => '0')));
         valid_regs  <= (others => '0');
-        ctrl_regs   <= (others => ('0', '0', '0', '0', 0));
       else
         --------------------------------------------------------------------------------
         -- Stage 1 - calculate scaling exponent and prediction error

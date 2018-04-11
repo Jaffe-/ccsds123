@@ -101,13 +101,7 @@ begin
   begin
     if (rising_edge(clk)) then
       if (aresetn = '0') then
-        rhs             <= 0;
-        rhs_part        <= 0;
-        counter_regs    <= (others => 0);
-        ctrl_regs       <= (others => ('0', '0', '0', '0', 0));
-        residual_regs   <= (others => (others => '0'));
         valid_regs      <= (others => '0');
-        code_word_cases <= (others => false);
       else
         --------------------------------------------------------------------------------
         -- Stage 1 - Compute floor(49/2^7 * counter(t))

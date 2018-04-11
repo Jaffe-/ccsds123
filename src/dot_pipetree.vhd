@@ -71,7 +71,6 @@ begin
   begin
     if (rising_edge(clk)) then
       if (aresetn = '0') then
-        sums       <= (others => to_signed(0, RESULT_SIZE-1));
         valid_regs <= (others => '0');
       else
         side_data_regs(0) <= (
@@ -96,7 +95,7 @@ begin
           sums(2**STAGES + i) <= resize(sums(2*i) + sums(2*i+1), RESULT_SIZE);
         end loop;
 
-        For i in 1 to STAGES loop
+        for i in 1 to STAGES loop
           valid_regs(i)     <= valid_regs(i-1);
           side_data_regs(i) <= side_data_regs(i-1);
         end loop;

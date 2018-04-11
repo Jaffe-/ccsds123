@@ -12,6 +12,8 @@ package common is
     scale_exponent : integer range -6 to 9;
   end record ctrl_t;
 
+  constant CTRL_ZERO : ctrl_t := ('0', '0', '0', '0', 0);
+
   function or_slv(slv : std_logic_vector) return std_logic;
   function clip(val : integer; val_min : integer; val_max : integer) return integer;
   function wrap_inc(val : integer; max : integer) return integer;
