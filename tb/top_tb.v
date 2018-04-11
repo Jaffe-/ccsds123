@@ -140,8 +140,10 @@ module top_tb;
          $fclose(f_out);
 
       end
-      $display("Stalled %0d of %0d cycles (%f%%)", stalled_cycles, total_cycles, stalled_cycles / $itor(total_cycles));
-      $display("Output valid %0d of %0d cycles (%f%%)", out_valid_cycles, out_cycles, out_valid_cycles / $itor(out_cycles));
+      $display("\n********************************************************************************");
+      $display("Stalled %0d of %0d cycles (%f%%)", stalled_cycles, total_cycles, 100*stalled_cycles / $itor(total_cycles));
+      $display("Output valid %0d of %0d cycles (%f%%)", out_valid_cycles, out_cycles, 100*out_valid_cycles / $itor(out_cycles));
+      $display("********************************************************************************\n");
       $finish;
    end;
 endmodule // top_tb
