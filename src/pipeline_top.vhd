@@ -123,7 +123,6 @@ begin
       NX             => NX,
       NY             => NY,
       NZ             => NZ,
-      CZ             => CZ,
       D              => D)
     port map (
       clk     => clk,
@@ -133,82 +132,52 @@ begin
       out_ctrl => from_ctrl_ctrl,
       out_z    => from_ctrl_z);
 
-  g_local_diff_full : if (not REDUCED) generate
-    i_local_diff : entity work.local_diff
-      generic map (
-        COL_ORIENTED => COL_ORIENTED,
-        NX           => NX,
-        NZ           => NZ,
-        CZ           => CZ,
-        D            => D)
-      port map (
-        clk     => clk,
-        aresetn => aresetn,
+  i_local_diff : entity work.local_diff
+    generic map (
+      COL_ORIENTED => COL_ORIENTED,
+      NZ           => NZ,
+      D            => D)
+    port map (
+      clk     => clk,
+      aresetn => aresetn,
 
-        s_cur     => signed(in_s),
-        s_ne      => signed(in_s_ne),
-        s_n       => signed(in_s_n),
-        s_nw      => signed(in_s_nw),
-        s_w       => signed(in_s_w),
-        in_prev_s => signed(in_prev_sample),
-        in_valid  => in_valid,
-        in_ctrl   => from_ctrl_ctrl,
-        in_z      => from_ctrl_z,
+      s_cur     => signed(in_s),
+      s_ne      => signed(in_s_ne),
+      s_n       => signed(in_s_n),
+      s_nw      => signed(in_s_nw),
+      s_w       => signed(in_s_w),
+      in_prev_s => signed(in_prev_sample),
+      in_valid  => in_valid,
+      in_ctrl   => from_ctrl_ctrl,
+      in_z      => from_ctrl_z,
 
-        local_sum  => from_local_diff_locsum,
-        d_c        => out_central_diff,
-        d_n        => d_n,
-        d_w        => d_w,
-        d_nw       => d_nw,
-        out_valid  => from_local_diff_valid,
-        out_ctrl   => from_local_diff_ctrl,
-        out_z      => from_local_diff_z,
-        out_s      => from_local_diff_s,
-        out_prev_s => from_local_diff_prev_s);
-  end generate g_local_diff_full;
-
-  g_local_diff_reduced : if (REDUCED) generate
-    i_local_diff : entity work.local_diff
-      generic map (
-        COL_ORIENTED => COL_ORIENTED,
-        NX           => NX,
-        NZ           => NZ,
-        CZ           => CZ,
-        D            => D)
-      port map (
-        clk     => clk,
-        aresetn => aresetn,
-
-        s_cur     => signed(in_s),
-        s_ne      => signed(in_s_ne),
-        s_n       => signed(in_s_n),
-        s_nw      => signed(in_s_nw),
-        s_w       => signed(in_s_w),
-        in_prev_s => signed(in_prev_sample),
-        in_valid  => in_valid,
-        in_ctrl   => from_ctrl_ctrl,
-        in_z      => from_ctrl_z,
-
-        local_sum  => from_local_diff_locsum,
-        d_c        => out_central_diff,
-        d_n        => open,
-        d_w        => open,
-        d_nw       => open,
-        out_valid  => from_local_diff_valid,
-        out_ctrl   => from_local_diff_ctrl,
-        out_z      => from_local_diff_z,
-        out_s      => from_local_diff_s,
-        out_prev_s => from_local_diff_prev_s);
-  end generate g_local_diff_reduced;
+      local_sum  => from_local_diff_locsum,
+      d_c        => out_central_diff,
+      d_n        => d_n,
+      d_w        => d_w,
+      d_nw       => d_nw,
+      out_valid  => from_local_diff_valid,
+      out_ctrl   => from_local_diff_ctrl,
+      out_z      => from_local_diff_z,
+      out_s      => from_local_diff_s,
+      out_prev_s => from_local_diff_prev_s);
 
   out_central_diff_valid <= from_local_diff_valid;
+
+  g_add_directional_diffs : if (not REDUCED) generate
+    process (d_n, d_w, d_nw)
+    begin
+      if (not REDUCED) then
+        local_diffs((P+3)*(D+3)-1 downto (P+2)*(D+3)) <= d_n;
+        local_diffs((P+2)*(D+3)-1 downto (P+1)*(D+3)) <= d_w;
+        local_diffs((P+1)*(D+3)-1 downto P*(D+3))     <= d_nw;
+      end if;
+    end process;
+  end generate g_add_directional_diffs;
 
   g_add_central_diffs : if (P > 0) generate
     process (in_prev_central_diffs, from_local_diff_z, d_n, d_w, d_nw)
     begin
-      local_diffs((P+3)*(D+3)-1 downto (P+2)*(D+3)) <= d_n;
-      local_diffs((P+2)*(D+3)-1 downto (P+1)*(D+3)) <= d_w;
-      local_diffs((P+1)*(D+3)-1 downto P*(D+3))     <= d_nw;
       if (from_local_diff_z >= P) then
         local_diffs(P*(D+3)-1 downto 0) <= in_prev_central_diffs;
       else
@@ -222,42 +191,54 @@ begin
     end process;
   end generate g_add_central_diffs;
 
-  i_dot : entity work.dot_product
-    generic map (
-      N      => CZ,
-      A_SIZE => D+3,
-      B_SIZE => OMEGA+3,
-      NX     => NX,
-      NZ     => NZ,
-      D      => D,
-      CZ     => CZ,
-      OMEGA  => OMEGA)
-    port map (
-      clk     => clk,
-      aresetn => aresetn,
+  g_dot : if (CZ > 0) generate
+    i_dot : entity work.dot_product
+      generic map (
+        N      => CZ,
+        A_SIZE => D+3,
+        B_SIZE => OMEGA+3,
+        NX     => NX,
+        NZ     => NZ,
+        D      => D,
+        CZ     => CZ,
+        OMEGA  => OMEGA)
+      port map (
+        clk     => clk,
+        aresetn => aresetn,
 
-      a       => local_diffs,
-      a_valid => from_local_diff_valid,
-      b       => in_weights,
-      b_valid => '1',
-      s       => pred_d_c,
-      s_valid => from_dot_valid,
+        a       => local_diffs,
+        a_valid => from_local_diff_valid,
+        b       => in_weights,
+        b_valid => '1',
+        s       => pred_d_c,
+        s_valid => from_dot_valid,
 
-      in_locsum  => from_local_diff_locsum,
-      in_ctrl    => from_local_diff_ctrl,
-      in_z       => from_local_diff_z,
-      in_prev_s  => from_local_diff_prev_s,
-      in_s       => from_local_diff_s,
-      in_weights => in_weights,
-      in_diffs   => local_diffs,
+        in_locsum  => from_local_diff_locsum,
+        in_ctrl    => from_local_diff_ctrl,
+        in_z       => from_local_diff_z,
+        in_prev_s  => from_local_diff_prev_s,
+        in_s       => from_local_diff_s,
+        in_weights => in_weights,
+        in_diffs   => local_diffs,
 
-      out_locsum  => from_dot_locsum,
-      out_ctrl    => from_dot_ctrl,
-      out_z       => from_dot_z,
-      out_s       => from_dot_s,
-      out_prev_s  => from_dot_prev_s,
-      out_weights => from_dot_weights,
-      out_diffs   => from_dot_diffs);
+        out_locsum  => from_dot_locsum,
+        out_ctrl    => from_dot_ctrl,
+        out_z       => from_dot_z,
+        out_s       => from_dot_s,
+        out_prev_s  => from_dot_prev_s,
+        out_weights => from_dot_weights,
+        out_diffs   => from_dot_diffs);
+  end generate g_dot;
+
+  g_no_dot : if (CZ = 0) generate
+    pred_d_c         <= (others => '0');
+    from_dot_valid   <= from_local_diff_valid;
+    from_dot_locsum  <= from_local_diff_locsum;
+    from_dot_ctrl    <= from_local_diff_ctrl;
+    from_dot_z       <= from_local_diff_z;
+    from_dot_s       <= from_local_diff_s;
+    from_dot_prev_s  <= from_local_diff_prev_s;
+  end generate g_no_dot;
 
   i_predictor : entity work.predictor
     generic map (
@@ -291,33 +272,35 @@ begin
       out_weights => from_pred_weights,
       out_diffs   => from_pred_diffs);
 
-  i_weight_update : entity work.weight_update
-    generic map (
-      REDUCED => REDUCED,
-      NX      => NX,
-      NZ      => NZ,
-      OMEGA   => OMEGA,
-      D       => D,
-      R       => R,
-      CZ      => CZ,
-      V_MIN   => V_MIN,
-      V_MAX   => V_MAX)
-    port map (
-      clk     => clk,
-      aresetn => aresetn,
+  g_weight_update : if (CZ > 0) generate
+    i_weight_update : entity work.weight_update
+      generic map (
+        REDUCED => REDUCED,
+        NX      => NX,
+        NZ      => NZ,
+        OMEGA   => OMEGA,
+        D       => D,
+        R       => R,
+        CZ      => CZ,
+        V_MIN   => V_MIN,
+        V_MAX   => V_MAX)
+      port map (
+        clk     => clk,
+        aresetn => aresetn,
 
-      in_ctrl    => from_pred_ctrl,
-      in_s       => from_pred_s,
-      in_pred_s  => from_pred_pred_s,
-      in_diffs   => from_pred_diffs,
-      in_valid   => from_pred_valid,
-      in_weights => from_pred_weights,
+        in_ctrl    => from_pred_ctrl,
+        in_s       => from_pred_s,
+        in_pred_s  => from_pred_pred_s,
+        in_diffs   => from_pred_diffs,
+        in_valid   => from_pred_valid,
+        in_weights => from_pred_weights,
 
-      out_valid   => from_w_update_valid,
-      out_weights => from_w_update_weights);
+        out_valid   => from_w_update_valid,
+        out_weights => from_w_update_weights);
 
-  w_update_wr      <= from_w_update_valid;
-  w_update_weights <= from_w_update_weights;
+    w_update_wr      <= from_w_update_valid;
+    w_update_weights <= from_w_update_weights;
+  end generate g_weight_update;
 
   i_residual_mapper : entity work.residual_mapper
     generic map (

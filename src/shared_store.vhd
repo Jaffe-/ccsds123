@@ -72,13 +72,17 @@ begin
   begin
     if (rising_edge(clk)) then
       if (aresetn = '0') then
-        wr_cnt       <= 0;
+        wr_cnt <= 0;
 
         -- Start read count at 1 so that reading is always behind writing.
         -- Otherwise we can end (due to pipeline stalls) in a situation where
         -- a read is attempted in the same location as currently being written
         -- to.
-        rd_cnt       <= 1;
+        if (ELEMENTS mod PIPELINES /= 0) then
+          rd_cnt <= 1;
+        else
+          rd_cnt <= 0;
+        end if;
         delay_stages <= (others => (others => '0'));
       else
         if (rd = '1') then

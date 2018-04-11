@@ -41,7 +41,7 @@ architecture rtl of combiner is
   constant MAX_BLOCKS_PER_WORD : integer := (BLOCK_SIZE + MAX_LENGTH) / BLOCK_SIZE;
   constant MAX_BLOCKS          : integer := (BLOCK_SIZE - 1 + N_WORDS * MAX_LENGTH) / BLOCK_SIZE + 1;
 
-  constant COUNTER_SIZE : integer := len2bits(MAX_BLOCKS);
+  constant COUNTER_SIZE : integer := 1+integer(log2(real(MAX_BLOCKS)));
 
   constant FIFO_DEPTH : integer := 128;
 
