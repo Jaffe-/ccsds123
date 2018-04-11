@@ -164,18 +164,15 @@ begin
 
   out_central_diff_valid <= from_local_diff_valid;
 
-  g_add_dir_diffs : if (not REDUCED) generate
-    process (d_n, d_w, d_nw)
-    begin
+  process (in_prev_central_diffs, from_local_diff_z, d_n, d_w, d_nw)
+  begin
+    if (not REDUCED) then
       local_diffs((P+3)*(D+3)-1 downto (P+2)*(D+3)) <= d_n;
       local_diffs((P+2)*(D+3)-1 downto (P+1)*(D+3)) <= d_w;
       local_diffs((P+1)*(D+3)-1 downto P*(D+3))     <= d_nw;
-    end process;
-  end generate g_add_dir_diffs;
+    end if;
 
-  g_add_central_diffs : if (P > 0) generate
-    process (in_prev_central_diffs, from_local_diff_z)
-    begin
+    if (P > 0) then
       if (from_local_diff_z >= P) then
         local_diffs(P*(D+3)-1 downto 0) <= in_prev_central_diffs;
       else
@@ -186,8 +183,8 @@ begin
           end if;
         end loop;
       end if;
-    end process;
-  end generate g_add_central_diffs;
+    end if;
+  end process;
 
   g_dot : if (CZ > 0) generate
     i_dot : entity work.dot_product
