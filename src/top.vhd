@@ -86,7 +86,7 @@ architecture rtl of ccsds123_top is
   --  Predictor:               2
   --  Weight update:           3
   --  Weight storage:          1
-  constant C_INCL_PIPE_CTRL : boolean := CZ > 0 and NZ/PIPELINES < 3 + (1 + integer(ceil(log2(real(CZ))))) + 2 + 3 + 1;
+  constant C_INCL_PIPE_CTRL : boolean := CZ > 0 and NZ/PIPELINES < DELAY_LOCAL_DIFF + delay_dot(CZ) + DELAY_PREDICTOR + DELAY_WEIGHT_UPDATE + 1;
 
   signal from_sample_store_ne : std_logic_vector(PIPELINES*D-1 downto 0);
   signal from_sample_store_nw : std_logic_vector(PIPELINES*D-1 downto 0);
@@ -143,7 +143,7 @@ begin
   i_weight_store : entity work.shared_store
     generic map (
       PIPELINES    => PIPELINES,
-      DELAY        => 2,
+      DELAY        => DELAY_LOCAL_DIFF - 1, -- read takes 1 cycle
       ELEMENT_SIZE => CZ*(OMEGA+3),
       ELEMENTS     => NZ)
     port map (

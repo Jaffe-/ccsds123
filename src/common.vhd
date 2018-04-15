@@ -12,16 +12,29 @@ package common is
     scale_exponent : integer range -6 to 9;
   end record ctrl_t;
 
-  constant CTRL_ZERO : ctrl_t := ('0', '0', '0', '0', 0);
-
   function or_slv(slv : std_logic_vector) return std_logic;
+
   function clip(val : integer; val_min : integer; val_max : integer) return integer;
+
   function wrap_inc(val : integer; max : integer) return integer;
+
   function max(a : integer; b : integer) return integer;
+
   function len2bits(val : integer) return integer;
+
+  constant DELAY_LOCAL_DIFF    : integer := 3;
+  constant DELAY_PREDICTOR     : integer := 2;
+  constant DELAY_WEIGHT_UPDATE : integer := 3;
+
+  function delay_dot(CZ : integer) return integer;
 end common;
 
 package body common is
+  function delay_dot(CZ : integer) return integer is
+  begin
+    return 1 + len2bits(CZ);
+  end function delay_dot;
+
   function or_slv(slv : std_logic_vector) return std_logic is
     variable val : std_logic;
   begin

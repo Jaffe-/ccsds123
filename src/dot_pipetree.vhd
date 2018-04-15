@@ -39,10 +39,10 @@ entity dot_product is
 end dot_product;
 
 architecture rtl of dot_product is
-  constant STAGES      : integer := integer(ceil(log2(real(CZ))));
+  constant STAGES      : integer := delay_dot(CZ);
   constant RESULT_SIZE : integer := D+3+OMEGA+3+CZ-1;
 
-  signal valid_regs : std_logic_vector(STAGES downto 0);
+  signal valid_regs : std_logic_vector(STAGES-1 downto 0);
 
   type side_data_t is record
     ctrl    : ctrl_t;
@@ -54,11 +54,11 @@ architecture rtl of dot_product is
     locsum  : signed(D+2 downto 0);
   end record side_data_t;
 
-  type side_data_arr_t is array (0 to STAGES) of side_data_t;
+  type side_data_arr_t is array (0 to STAGES-1) of side_data_t;
 
   signal side_data_regs : side_data_arr_t;
 
-  type s_vec_t is array(0 to 2**(STAGES+1)-2) of signed(RESULT_SIZE-1 downto 0);
+  type s_vec_t is array(0 to 2**STAGES-2) of signed(RESULT_SIZE-1 downto 0);
   signal sums : s_vec_t;
 
 begin
@@ -83,7 +83,7 @@ begin
           locsum  => in_locsum);
         valid_regs(0) <= in_valid;
 
-        for i in 0 to 2**STAGES-1 loop
+        for i in 0 to 2**(STAGES-1)-1 loop
           if (i < CZ) then
             sums(i) <= resize(in_diffs((i+1)*(D+3)-1 downto i*(D+3)) * in_weights((i+1)*(OMEGA+3)-1 downto i*(OMEGA+3)), RESULT_SIZE);
           else
@@ -91,11 +91,11 @@ begin
           end if;
         end loop;
 
-        for i in 0 to 2**STAGES-2 loop
-          sums(2**STAGES + i) <= resize(sums(2*i) + sums(2*i+1), RESULT_SIZE);
+        for i in 0 to 2**(STAGES-1)-2 loop
+          sums(2**(STAGES-1) + i) <= resize(sums(2*i) + sums(2*i+1), RESULT_SIZE);
         end loop;
 
-        for i in 1 to STAGES loop
+        for i in 1 to STAGES-1 loop
           valid_regs(i)     <= valid_regs(i-1);
           side_data_regs(i) <= side_data_regs(i-1);
         end loop;
@@ -105,13 +105,13 @@ begin
 
   -- The last index of the sums array is the final sum
   out_pred_d_c <= sums(sums'high);
-  out_valid    <= valid_regs(STAGES);
+  out_valid    <= valid_regs(STAGES-1);
 
-  out_ctrl    <= side_data_regs(STAGES).ctrl;
-  out_z       <= side_data_regs(STAGES).z;
-  out_s       <= side_data_regs(STAGES).s;
-  out_prev_s  <= side_data_regs(STAGES).prev_s;
-  out_weights <= side_data_regs(STAGES).weights;
-  out_diffs   <= side_data_regs(STAGES).diffs;
-  out_locsum  <= side_data_regs(STAGES).locsum;
+  out_ctrl    <= side_data_regs(STAGES-1).ctrl;
+  out_z       <= side_data_regs(STAGES-1).z;
+  out_s       <= side_data_regs(STAGES-1).s;
+  out_prev_s  <= side_data_regs(STAGES-1).prev_s;
+  out_weights <= side_data_regs(STAGES-1).weights;
+  out_diffs   <= side_data_regs(STAGES-1).diffs;
+  out_locsum  <= side_data_regs(STAGES-1).locsum;
 end rtl;
