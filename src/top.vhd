@@ -34,6 +34,7 @@ entity ccsds123_top is
     in_tdata  : in  std_logic_vector(PIPELINES * D-1 downto 0);
     in_tvalid : in  std_logic;
     in_tready : out std_logic;
+    in_tlast  : in  std_logic;
 
     out_tdata  : out std_logic_vector(BUS_WIDTH-1 downto 0);
     out_tvalid : out std_logic;
@@ -78,6 +79,8 @@ architecture rtl of ccsds123_top is
 
   signal prev_s_reg : std_logic_vector(D-1 downto 0);
 
+  signal to_pipeline_valid : std_logic_vector(PIPELINES-1 downto 0);
+
   -- Stall input if the pipeline is deeper than NZ, and we have filled up NZ
   -- components already
   --
@@ -121,6 +124,24 @@ begin
   g_nopipe_ctrl : if (not C_INCL_PIPE_CTRL) generate
     in_ready <= not combiner_over_threshold;
   end generate g_nopipe_ctrl;
+
+  process (in_tlast, in_handshake)
+  begin
+    if (in_handshake = '1') then
+      if (in_tlast = '0') then
+        to_pipeline_valid <= (others => '1');
+      else
+        to_pipeline_valid <= (others => '0');
+        for i in 0 to PIPELINES-1 loop
+          if (i < NX*NY*NZ mod PIPELINES) then
+            to_pipeline_valid(i) <= '1';
+          end if;
+        end loop;
+      end if;
+    else
+      to_pipeline_valid <= (others => '0');
+    end if;
+  end process;
 
   i_sample_store : entity work.sample_store
     generic map (
@@ -260,7 +281,7 @@ begin
         in_s_n         => from_sample_store_n((i+1)*D-1 downto i*D),
         in_s_w         => from_sample_store_w((i+1)*D-1 downto i*D),
         in_prev_sample => prev_s,
-        in_valid       => in_handshake,
+        in_valid       => to_pipeline_valid(i),
         in_weights     => signed(weights_rd_data((i+1)*CZ*(OMEGA+3)-1 downto i*CZ*(OMEGA+3))),
 
         weights_wr      => weights_wr(i),

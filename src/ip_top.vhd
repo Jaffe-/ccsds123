@@ -30,6 +30,7 @@ entity ccsds123_ip_top is
     -- Input AXI Stream
     s_axis_tdata  : in  std_logic_vector(PIPELINES*D-1 downto 0);
     s_axis_tvalid : in  std_logic;
+    s_axis_tlast  : in  std_logic;
     s_axis_tready : out std_logic;
 
     -- Output AXI Stream
@@ -99,6 +100,7 @@ begin
       in_tdata   => s_axis_tdata,
       in_tvalid  => s_axis_tvalid,
       in_tready  => core_ready,
+      in_tlast   => s_axis_tlast,
       out_tdata  => from_core_tdata,
       out_tvalid => from_core_tvalid,
       out_tlast  => from_core_tlast);
