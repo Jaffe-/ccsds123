@@ -50,7 +50,8 @@ module top_tb;
 
    always #(PERIOD/2) clk = ~clk;
 
-   integer          i, wr_i, iter;
+   integer          i, iter;
+   integer          in_count;
    integer          f_in, f_out;
    reg[200*8:0]    in_filename;
    integer         stalled_cycles, total_cycles;
@@ -75,18 +76,13 @@ module top_tb;
       end
 
       for (iter = 0; iter < 2; iter = iter + 1) begin
+         in_count = 0;
          stalled_cycles = 0;
          total_cycles = 0;
          $display("Starting iteration %0d", iter);
          $fseek(f_in, 0, 0);
 
-         for (i = 0; i < PIPELINES; i = i + 1) begin
-            s_axis_tdata[2*i*8     +: 8] <= $fgetc(f_in);
-            s_axis_tdata[(2*i+1)*8 +: 8] <= $fgetc(f_in);
-         end
-         s_axis_tvalid <= 1'b1;
-         while (!$feof(f_in)) begin
-            @(posedge clk);
+         while (!$feof(f_in) && in_count < $ceil(NX*NY*NZ/$itor(PIPELINES))) begin
             total_cycles = total_cycles + 1;
             if (s_axis_tready) begin
                if ((BUBBLES || $test$plusargs("BUBBLES")) && $urandom % 3 != 0) begin
@@ -97,10 +93,12 @@ module top_tb;
                      s_axis_tdata[(2*i+1)*8 +: 8] <= $fgetc(f_in);
                   end
                   s_axis_tvalid <= 1'b1;
+                  in_count = in_count + 1;
                end
             end else begin
                stalled_cycles = stalled_cycles + 1;
             end
+            @(posedge clk);
          end
       end
 
