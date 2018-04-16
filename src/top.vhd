@@ -34,7 +34,6 @@ entity ccsds123_top is
     in_tdata  : in  std_logic_vector(PIPELINES * D-1 downto 0);
     in_tvalid : in  std_logic;
     in_tready : out std_logic;
-    in_tlast  : in  std_logic;
 
     out_tdata  : out std_logic_vector(BUS_WIDTH-1 downto 0);
     out_tvalid : out std_logic;
@@ -63,6 +62,9 @@ architecture rtl of ccsds123_top is
   signal accumulator_wr_data : std_logic_vector(PIPELINES*(D+COUNTER_SIZE)-1 downto 0);
   signal accumulator_rd      : std_logic_vector(PIPELINES-1 downto 0);
   signal accumulator_rd_data : std_logic_vector(PIPELINES*(D+COUNTER_SIZE)-1 downto 0);
+
+  signal pipeline_last : std_logic_vector(PIPELINES-1 downto 0);
+  signal last          : std_logic;
 
   signal pipeline_out_valid    : std_logic_vector(PIPELINES-1 downto 0);
   signal pipeline_out_last     : std_logic_vector(PIPELINES-1 downto 0);
@@ -125,10 +127,12 @@ begin
     in_ready <= not combiner_over_threshold;
   end generate g_nopipe_ctrl;
 
-  process (in_tlast, in_handshake)
+  last <= or_slv(pipeline_last);
+
+  process (last, in_handshake)
   begin
     if (in_handshake = '1') then
-      if (in_tlast = '0') then
+      if (last = '0') then
         to_pipeline_valid <= (others => '1');
       else
         to_pipeline_valid <= (others => '0');
@@ -164,7 +168,7 @@ begin
   i_weight_store : entity work.shared_store
     generic map (
       PIPELINES    => PIPELINES,
-      DELAY        => DELAY_LOCAL_DIFF - 1, -- read takes 1 cycle
+      DELAY        => DELAY_LOCAL_DIFF - 1,  -- read takes 1 cycle
       ELEMENT_SIZE => CZ*(OMEGA+3),
       ELEMENTS     => NZ)
     port map (
@@ -283,6 +287,8 @@ begin
         in_prev_sample => prev_s,
         in_valid       => to_pipeline_valid(i),
         in_weights     => signed(weights_rd_data((i+1)*CZ*(OMEGA+3)-1 downto i*CZ*(OMEGA+3))),
+
+        has_last_sample => pipeline_last(i),
 
         weights_wr      => weights_wr(i),
         weights_wr_data => weights_wr_data((i+1)*CZ*(OMEGA+3)-1 downto i*CZ*(OMEGA+3)),

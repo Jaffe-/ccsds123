@@ -63,6 +63,7 @@ begin
               x <= 0;
               if (y = Ny - 1) then
                 y <= 0;
+                z <= PIPELINE_INDEX;
               else
                 y <= y + 1;
               end if;

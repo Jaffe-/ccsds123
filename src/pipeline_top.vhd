@@ -39,6 +39,9 @@ entity pipeline_top is
     in_valid       : in std_logic;
     in_weights     : in signed(CZ*(OMEGA+3)-1 downto 0);
 
+    -- Used to tell top that this pipeline is handling last sample
+    has_last_sample : out std_logic;
+
     -- Intermediate signals
     weights_wr      : out std_logic;
     weights_wr_data : out signed(CZ*(OMEGA+3)-1 downto 0);
@@ -132,6 +135,8 @@ begin
       tick     => in_valid,
       out_ctrl => from_ctrl_ctrl,
       out_z    => from_ctrl_z);
+
+  has_last_sample <= from_ctrl_ctrl.last;
 
   i_local_diff : entity work.local_diff
     generic map (
