@@ -133,7 +133,7 @@ begin
       else
         to_pipeline_valid <= (others => '0');
         for i in 0 to PIPELINES-1 loop
-          if (i < NX*NY*NZ mod PIPELINES) then
+          if (NX*NY*NZ mod PIPELINES = 0 or i < NX*NY*NZ mod PIPELINES) then
             to_pipeline_valid(i) <= '1';
           end if;
         end loop;
