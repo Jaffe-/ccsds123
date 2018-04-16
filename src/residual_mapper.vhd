@@ -29,11 +29,11 @@ end residual_mapper;
 architecture rtl of residual_mapper is
   signal residual             : signed(D + 1 downto 0);
   signal theta                : integer range -2**D to 2**D-1;
-  signal valid_reg            : std_logic;
   signal in_scaled_pred_s_odd : std_logic;
 
-  signal ctrl_reg : ctrl_t;
-  signal z_reg    : integer range 0 to NZ-1;
+  signal ctrl_reg   : ctrl_t;
+  signal z_reg      : integer range 0 to NZ-1;
+  signal valid_regs : std_logic_vector(1 downto 0);
 
   function get_min(a : integer; b : integer) return integer is
   begin
@@ -51,7 +51,7 @@ begin
   begin
     if (rising_edge(clk)) then
       if (aresetn = '0') then
-        valid_reg            <= '0';
+        valid_regs <= (others => '0');
       else
         --------------------------------------------------------------------------------
         -- Stage 1 - compute residual and Theta
@@ -62,9 +62,9 @@ begin
         theta                <= get_min(to_integer(pred_s) + 2**(D-1), (2**(D-1)-1) - to_integer(pred_s));
         in_scaled_pred_s_odd <= in_scaled_pred_s(0);
 
-        valid_reg <= in_valid;
-        ctrl_reg  <= in_ctrl;
-        z_reg     <= in_z;
+        valid_regs(0) <= in_valid;
+        ctrl_reg      <= in_ctrl;
+        z_reg         <= in_z;
 
         --------------------------------------------------------------------------------
         -- Stage 2 - choose mapped residual
@@ -79,10 +79,11 @@ begin
           out_delta <= resize(shift_left(abs_residual, 1) - 1, D);
         end if;
 
-        out_valid <= valid_reg;
-        out_ctrl  <= ctrl_reg;
-        out_z     <= z_reg;
+        valid_regs(1) <= valid_regs(0);
+        out_ctrl      <= ctrl_reg;
+        out_z         <= z_reg;
       end if;
     end if;
   end process;
+  out_valid <= valid_regs(1);
 end rtl;
