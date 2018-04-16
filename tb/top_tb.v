@@ -8,11 +8,12 @@ module top_tb;
 
    parameter BUBBLES = 0;
 
-   parameter PIPELINES = 4;
+   parameter PIPELINES = 3;
 
    reg clk, aresetn;
    reg [PIPELINES*D-1:0] s_axis_tdata;
-   reg         s_axis_tvalid;
+   reg                   s_axis_tvalid;
+   reg s_axis_tlast;
 
    wire        s_axis_tready;
    wire [BUS_WIDTH-1:0] res;
@@ -44,6 +45,7 @@ module top_tb;
       .in_tdata(s_axis_tdata),
       .in_tvalid(s_axis_tvalid),
       .in_tready(s_axis_tready),
+      .in_tlast(s_axis_tlast),
       .out_tdata(res),
       .out_tvalid(res_valid),
       .out_tlast(res_last));
@@ -54,12 +56,14 @@ module top_tb;
    integer          f_in, f_out;
    reg[200*8:0]    in_filename;
    integer         stalled_cycles, total_cycles;
+   integer         run_input;
 
    initial begin
       clk <= 1'b0;
       aresetn <= 1'b0;
       s_axis_tdata <= 8'b0;
       s_axis_tvalid <= 1'b0;
+      s_axis_tlast <= 1'b0;
 
       repeat(4) @(posedge clk);
       aresetn <= 1'b1;
@@ -74,33 +78,40 @@ module top_tb;
          $finish;
       end
 
+      @(posedge clk);
+
       for (iter = 0; iter < 2; iter = iter + 1) begin
          stalled_cycles = 0;
          total_cycles = 0;
+         run_input = 1;
+
          $display("Starting iteration %0d", iter);
          $fseek(f_in, 0, 0);
 
-         for (i = 0; i < PIPELINES; i = i + 1) begin
-            s_axis_tdata[2*i*8     +: 8] <= $fgetc(f_in);
-            s_axis_tdata[(2*i+1)*8 +: 8] <= $fgetc(f_in);
-         end
-         s_axis_tvalid <= 1'b1;
-         while (!$feof(f_in)) begin
-            @(posedge clk);
+         while (run_input) begin
             total_cycles = total_cycles + 1;
             if (s_axis_tready) begin
                if ((BUBBLES || $test$plusargs("BUBBLES")) && $urandom % 3 != 0) begin
                   s_axis_tvalid <= 1'b0;
                end else begin
                   for (i = 0; i < PIPELINES; i = i + 1) begin
-                     s_axis_tdata[2*i*8     +: 8] <= $fgetc(f_in);
-                     s_axis_tdata[(2*i+1)*8 +: 8] <= $fgetc(f_in);
+                     if (!$feof(f_in)) begin
+                        s_axis_tdata[2*i*8     +: 8] <= $fgetc(f_in);
+                        s_axis_tdata[(2*i+1)*8 +: 8] <= $fgetc(f_in);
+                     end;
                   end
+                  if ($feof(f_in)) begin
+                     s_axis_tlast <= 1'b1;
+                     run_input <= 0;
+                  end else begin
+                     s_axis_tlast <= 1'b0;
+                  end;
                   s_axis_tvalid <= 1'b1;
                end
             end else begin
                stalled_cycles = stalled_cycles + 1;
             end
+            @(posedge clk);
          end
       end
 
