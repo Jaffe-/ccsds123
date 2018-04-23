@@ -6,16 +6,19 @@ module top_tb;
 
    parameter BUBBLES = 0;
 
-   parameter PIPELINES = 4;
+   parameter OUT_BUBBLES = 1;
+
+   parameter PIPELINES = 3;
 
    reg clk, aresetn;
-   reg [PIPELINES*D-1:0] s_axis_tdata;
-   reg         s_axis_tvalid;
+   reg [PIPELINES*D-1:0] in_tdata;
+   reg         in_tvalid;
 
-   wire        s_axis_tready;
-   wire [BUS_WIDTH-1:0] res;
-   wire         res_valid;
-   wire         res_last;
+   wire        in_tready;
+   wire [BUS_WIDTH-1:0] out_tdata;
+   wire         out_tvalid;
+   wire         out_last;
+   reg         out_tready;
 
    ccsds123_top
      #(.PIPELINES(PIPELINES),
@@ -39,12 +42,13 @@ module top_tb;
    i_top
      (.clk(clk),
       .aresetn(aresetn),
-      .in_tdata(s_axis_tdata),
-      .in_tvalid(s_axis_tvalid),
-      .in_tready(s_axis_tready),
-      .out_tdata(res),
-      .out_tvalid(res_valid),
-      .out_tlast(res_last));
+      .s_axis_tdata(in_tdata),
+      .s_axis_tvalid(in_tvalid),
+      .s_axis_tready(in_tready),
+      .m_axis_tdata(out_tdata),
+      .m_axis_tvalid(out_tvalid),
+      .m_axis_tlast(out_last),
+      .m_axis_tready(out_tready));
 
    always #(PERIOD/2) clk = ~clk;
 
@@ -57,8 +61,8 @@ module top_tb;
    initial begin
       clk <= 1'b0;
       aresetn <= 1'b0;
-      s_axis_tdata <= 8'b0;
-      s_axis_tvalid <= 1'b0;
+      in_tdata <= 8'b0;
+      in_tvalid <= 1'b0;
 
       repeat(4) @(posedge clk);
       aresetn <= 1'b1;
@@ -82,15 +86,15 @@ module top_tb;
 
          while (!$feof(f_in) && in_count < $ceil(NX*NY*NZ/$itor(PIPELINES))) begin
             total_cycles = total_cycles + 1;
-            if (s_axis_tready) begin
+            if (in_tready) begin
                if ((BUBBLES || $test$plusargs("BUBBLES")) && $urandom % 3 != 0) begin
-                  s_axis_tvalid <= 1'b0;
+                  in_tvalid <= 1'b0;
                end else begin
                   for (i = 0; i < PIPELINES; i = i + 1) begin
-                     s_axis_tdata[2*i*8     +: 8] <= $fgetc(f_in);
-                     s_axis_tdata[(2*i+1)*8 +: 8] <= $fgetc(f_in);
+                     in_tdata[2*i*8     +: 8] <= $fgetc(f_in);
+                     in_tdata[(2*i+1)*8 +: 8] <= $fgetc(f_in);
                   end
-                  s_axis_tvalid <= 1'b1;
+                  in_tvalid <= 1'b1;
                   in_count = in_count + 1;
                end
             end else begin
@@ -102,12 +106,28 @@ module top_tb;
 
       $fclose(f_in);
 
-      s_axis_tvalid <= 1'b0;
+      in_tvalid <= 1'b0;
    end;
+
+   integer stall_cnt;
+
+   // Simulate random stalling of output stream
+   initial begin
+      while (1) begin
+         out_tready <= 1'b1;
+         if (OUT_BUBBLES && $urandom % 40 == 0) begin
+            out_tready <= 1'b0;
+            for (stall_cnt = 0; stall_cnt < 4 + ($urandom % 20); stall_cnt = stall_cnt + 1) begin
+               @(posedge clk);
+            end
+         end
+         @(posedge clk);
+      end
+   end
 
    integer byte_idx, j;
    integer prev_done;
-   integer out_cycles, out_valid_cycles;
+   integer out_cycles, out_tvalid_cycles;
    reg [200*8:0] out_filename;
    reg [200*8:0] out_dir;
 
@@ -117,17 +137,17 @@ module top_tb;
       end
       for (j = 0; j < 2; j = j + 1) begin
          out_cycles = 0;
-         out_valid_cycles = 0;
+         out_tvalid_cycles = 0;
          $sformat(out_filename, "%0s/out_%0d.bin", out_dir, j);
          f_out = $fopen(out_filename, "wb");
-         while (prev_done || (res_valid !== 1'b1 || res_last !== 1'b1)) begin
+         while (prev_done || (out_tready !== 1'b1 || out_tvalid !== 1'b1 || out_last !== 1'b1)) begin
             prev_done = 0;
             @(posedge clk);
             out_cycles = out_cycles + 1;
-            if (res_valid) begin
-               out_valid_cycles = out_valid_cycles + 1;
+            if (out_tvalid && out_tready) begin
+               out_tvalid_cycles = out_tvalid_cycles + 1;
                for (byte_idx = 0; byte_idx < BUS_WIDTH/8; byte_idx = byte_idx + 1) begin
-                  $fwrite(f_out, "%c", res[byte_idx*8+:8]);
+                  $fwrite(f_out, "%c", out_tdata[byte_idx*8+:8]);
                end
             end
          end
@@ -138,7 +158,7 @@ module top_tb;
       end
       $display("\n********************************************************************************");
       $display("Stalled %0d of %0d cycles (%f%%)", stalled_cycles, total_cycles, 100*stalled_cycles / $itor(total_cycles));
-      $display("Output valid %0d of %0d cycles (%f%%)", out_valid_cycles, out_cycles, 100*out_valid_cycles / $itor(out_cycles));
+      $display("Output valid %0d of %0d cycles (%f%%)", out_tvalid_cycles, out_cycles, 100*out_tvalid_cycles / $itor(out_cycles));
       $display("********************************************************************************\n");
       $finish;
    end;
