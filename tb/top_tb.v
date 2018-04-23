@@ -2,8 +2,6 @@
 
 module top_tb;
 `include "comp_params.v"
-   parameter BUS_WIDTH = 64;
-
    parameter PERIOD = 10;
 
    parameter BUBBLES = 0;
