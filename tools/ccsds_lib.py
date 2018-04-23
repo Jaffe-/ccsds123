@@ -65,6 +65,7 @@ def write_sim_params(dimensions, parameters, filename):
         "COL_ORIENTED": 1 if parameters["locsum_mode"] == "column" else 0,
         "REDUCED": 1 if parameters["mode"] == "reduced" else 0,
         "LITTLE_ENDIAN": 1 if parameters["out_endianness"] == "little" else 0,
+        "BUS_WIDTH": 8 * int(parameters["out_word_size"]),
         }
 
     with open(filename, 'w') as f:
