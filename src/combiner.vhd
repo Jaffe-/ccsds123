@@ -30,6 +30,7 @@ entity combiner is
     out_data  : out std_logic_vector(BLOCK_SIZE-1 downto 0);
     out_valid : out std_logic;
     out_last  : out std_logic;
+    out_ready : in  std_logic;
 
     over_threshold : out std_logic
     );
@@ -83,6 +84,8 @@ architecture rtl of combiner is
   signal from_fifo_valid  : std_logic;
   signal from_fifo_count  : integer range 0 to MAX_BLOCKS;
   signal from_fifo_blocks : full_blocks_t;
+
+  signal out_handshake : std_logic;
 
   signal counter : integer range 0 to MAX_BLOCKS-1;
 begin
@@ -229,7 +232,9 @@ begin
       dbiterr       => open
       );
 
-  fifo_rden       <= '1' when fifo_empty = '0' and (from_fifo_valid = '0' or counter = from_fifo_count - 1) else '0';
+  fifo_rden <= '1' when fifo_empty = '0' and (from_fifo_valid = '0' or
+                                              (out_handshake = '1' and counter = from_fifo_count - 1))
+               else '0';
   from_fifo_count <= to_integer(unsigned(fifo_out(fifo_out'high - 1 downto fifo_out'high - COUNTER_SIZE)));
   from_fifo_last  <= fifo_out(fifo_out'high);
   process (fifo_out)
@@ -249,17 +254,18 @@ begin
         if (fifo_rden = '1') then
           from_fifo_valid <= '1';
           counter         <= 0;
-        elsif (counter = from_fifo_count - 1) then
+        elsif (out_handshake = '1' and counter = from_fifo_count - 1) then
           from_fifo_valid <= '0';
-        elsif (from_fifo_valid = '1') then
+        elsif (out_handshake = '1') then
           counter <= counter + 1;
         end if;
-
       end if;
     end if;
   end process;
 
+  out_handshake <= from_fifo_valid and out_ready;
   out_valid <= from_fifo_valid;
+
   process (counter, from_fifo_last, from_fifo_count, from_fifo_blocks)
   begin
     -- Perform optional endianness swap

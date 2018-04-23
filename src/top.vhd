@@ -31,13 +31,14 @@ entity ccsds123_top is
     aresetn : in std_logic;
 
     -- Input AXI stream
-    in_tdata  : in  std_logic_vector(PIPELINES * D-1 downto 0);
-    in_tvalid : in  std_logic;
-    in_tready : out std_logic;
+    s_axis_tdata  : in  std_logic_vector(PIPELINES * D-1 downto 0);
+    s_axis_tvalid : in  std_logic;
+    s_axis_tready : out std_logic;
 
-    out_tdata  : out std_logic_vector(BUS_WIDTH-1 downto 0);
-    out_tvalid : out std_logic;
-    out_tlast  : out std_logic
+    m_axis_tdata  : out std_logic_vector(BUS_WIDTH-1 downto 0);
+    m_axis_tvalid : out std_logic;
+    m_axis_tlast  : out std_logic;
+    m_axis_tready : in  std_logic
     );
 end ccsds123_top;
 
@@ -99,8 +100,8 @@ architecture rtl of ccsds123_top is
   signal from_sample_store_w  : std_logic_vector(PIPELINES*D-1 downto 0);
 
 begin
-  in_handshake <= in_tvalid and in_ready;
-  in_tready    <= in_ready;
+  in_handshake <= s_axis_tvalid and in_ready;
+  s_axis_tready    <= in_ready;
 
   g_pipe_ctrl : if (C_INCL_PIPE_CTRL) generate
     signal count : integer range 0 to NZ;
@@ -157,7 +158,7 @@ begin
       clk     => clk,
       aresetn => aresetn,
 
-      in_s     => in_tdata,
+      in_s     => s_axis_tdata,
       in_valid => in_handshake,
 
       out_s_ne => from_sample_store_ne,
@@ -219,7 +220,7 @@ begin
       if (aresetn = '0') then
         prev_s_reg <= (others => '0');
       elsif (in_handshake = '1') then
-        prev_s_reg <= in_tdata(PIPELINES*D-1 downto (PIPELINES-1)*D);
+        prev_s_reg <= s_axis_tdata(PIPELINES*D-1 downto (PIPELINES-1)*D);
       end if;
     end if;
   end process;
@@ -233,7 +234,7 @@ begin
     -- index 0, so reorder it:
     central_diffs_vec((PIPELINES-i)*(D+3)-1 downto (PIPELINES-i-1)*(D+3)) <= central_diff(i);
 
-    process (central_diff, from_local_diff_store, prev_s_reg, in_tdata)
+    process (central_diff, from_local_diff_store, prev_s_reg, s_axis_tdata)
     begin
       for j in 0 to P-1 loop
         -- If j < i then we're going to take central differences from the other
@@ -248,7 +249,7 @@ begin
       if (i = 0) then
         prev_s <= prev_s_reg;
       else
-        prev_s <= in_tdata(i*D-1 downto (i-1)*D);
+        prev_s <= s_axis_tdata(i*D-1 downto (i-1)*D);
       end if;
     end process;
 
@@ -279,7 +280,7 @@ begin
         clk     => clk,
         aresetn => aresetn,
 
-        in_s           => in_tdata((i+1)*D-1 downto i*D),
+        in_s           => s_axis_tdata((i+1)*D-1 downto i*D),
         in_s_ne        => from_sample_store_ne((i+1)*D-1 downto i*D),
         in_s_nw        => from_sample_store_nw((i+1)*D-1 downto i*D),
         in_s_n         => from_sample_store_n((i+1)*D-1 downto i*D),
@@ -324,9 +325,10 @@ begin
       in_valid   => pipeline_out_valid(0),
       in_last    => or_slv(pipeline_out_last),
 
-      out_data  => out_tdata,
-      out_valid => out_tvalid,
-      out_last  => out_tlast,
+      out_data  => m_axis_tdata,
+      out_valid => m_axis_tvalid,
+      out_last  => m_axis_tlast,
+      out_ready => m_axis_tready,
 
       over_threshold => combiner_over_threshold
       );
