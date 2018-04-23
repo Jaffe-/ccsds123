@@ -311,7 +311,7 @@ begin
 
   i_packer : entity work.combiner
     generic map (
-      BLOCK_SIZE    => 64,
+      BLOCK_SIZE    => BUS_WIDTH,
       N_WORDS       => PIPELINES,
       MAX_LENGTH    => UMAX + D,
       LITTLE_ENDIAN => LITTLE_ENDIAN)
