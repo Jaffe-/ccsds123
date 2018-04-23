@@ -101,7 +101,7 @@ begin
   begin
     if (rising_edge(clk)) then
       if (aresetn = '0') then
-        valid_regs      <= (others => '0');
+        valid_regs <= (others => '0');
       else
         --------------------------------------------------------------------------------
         -- Stage 1 - Compute floor(49/2^7 * counter(t))
@@ -170,6 +170,7 @@ begin
         --------------------------------------------------------------------------------
         if (valid_regs(3) = '0') then
           code_num_bits <= 0;
+          code_word     <= (others => '0');
         else
           if (ctrl_regs(3).first_line = '1' and ctrl_regs(3).first_in_line = '1') then
             code_word     <= residual_regs(3) & (UMAX-1 downto 0 => '0');
