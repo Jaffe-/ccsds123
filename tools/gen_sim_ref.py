@@ -56,7 +56,7 @@ def main():
             else:
                 current_pos -= 1
 
-    # We need to remove trailing zeroes and add zeroes until the compressed size is a multiple of 64 bits
+    # We need to remove trailing zeroes and add zeroes until the compressed size is a multiple of the output word size
     out_word_size = parameters["out_word_size"]
     stripped_change = -current_pos
     stripped_size = compressed_size - stripped_change
