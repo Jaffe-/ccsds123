@@ -117,7 +117,7 @@ module top_tb;
          out_tready <= 1'b1;
          if (OUT_BUBBLES && $urandom % 40 == 0) begin
             out_tready <= 1'b0;
-            for (stall_cnt = 0; stall_cnt < 4 + ($urandom % 20); stall_cnt = stall_cnt + 1) begin
+            for (stall_cnt = 0; stall_cnt < 20 + ($urandom % 20); stall_cnt = stall_cnt + 1) begin
                @(posedge clk);
             end
          end
