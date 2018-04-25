@@ -91,8 +91,8 @@ module top_tb;
                   in_tvalid <= 1'b0;
                end else begin
                   for (i = 0; i < PIPELINES; i = i + 1) begin
-                     in_tdata[2*i*8     +: 8] <= $fgetc(f_in);
-                     in_tdata[(2*i+1)*8 +: 8] <= $fgetc(f_in);
+                     in_tdata[i*D     +: 8] <= $fgetc(f_in);
+                     in_tdata[i*D + 8 +: 8] <= $fgetc(f_in);
                   end
                   in_tvalid <= 1'b1;
                   in_count = in_count + 1;
