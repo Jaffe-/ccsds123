@@ -1,4 +1,6 @@
 import subprocess
+import os
+import struct
 
 EMPORDA_FILENAME = "emporda_config_temp.txt"
 
@@ -71,3 +73,46 @@ def write_sim_params(dimensions, parameters, filename):
     with open(filename, 'w') as f:
         for (param_name, val) in sim_params.items():
             f.write("parameter %s = %s;\n" % (param_name, val))
+
+def generate_golden(parameters, dimensions, img_filename, golden_filename):
+    HEADER_SIZE = 19
+    encoded_filename = golden_filename + ".tmp"
+
+    # Write emporda config file
+    write_emporda_config(dimensions, "BIP", parameters)
+
+    # Call emporda
+    callstring = emporda_callstring(img_filename, dimensions, "BIP", "3", "little", encoded_filename)
+    print(callstring)
+    subprocess.call(callstring, shell=True)
+    compressed_size = os.stat(encoded_filename).st_size - HEADER_SIZE
+
+    # Strip the header from the compressed golden file
+    subprocess.call("dd bs=%s skip=1 if=%s of=%s" % (HEADER_SIZE, encoded_filename, golden_filename), shell=True)
+
+    # Count trailing zeroes
+    with open(golden_filename, 'rb') as f:
+        current_pos = -1
+        while (True):
+            f.seek(current_pos, 2)
+            if f.read(1) != '\x00':
+                break
+            else:
+                current_pos -= 1
+
+    # We need to remove trailing zeroes and add zeroes until the compressed size is a multiple of the output word size
+    out_word_size = parameters["out_word_size"]
+    stripped_change = -current_pos
+    stripped_size = compressed_size - stripped_change
+    delta = -stripped_change + out_word_size - (stripped_size % out_word_size)
+
+    if (delta != 0):
+        sign = '+' if delta > 0 else ''
+        subprocess.call("truncate -s %s%s %s" % (sign, delta, golden_filename), shell=True)
+
+    subprocess.call("rm %s" % encoded_filename, shell=True)
+
+def gen_cube(filename, NX, NY, NZ):
+    with open(filename, 'wb') as f:
+        for i in range(0, NX*NY*NZ):
+            f.write(struct.pack('<H', i % 2**16))

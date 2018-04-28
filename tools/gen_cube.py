@@ -1,10 +1,5 @@
-import sys;
-import struct;
-
-def gen_cube(filename, NX, NY, NZ):
-    with open(filename, 'wb') as f:
-        for i in range(0, NX*NY*NZ):
-            f.write(struct.pack('<H', i % 2**16))
+import sys
+import ccsds_lib
 
 def main():
     if len(sys.argv) <= 4:
