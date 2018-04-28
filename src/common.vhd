@@ -22,6 +22,8 @@ package common is
 
   function len2bits(val : integer) return integer;
 
+  function num2bits(val : integer) return integer;
+
   constant DELAY_LOCAL_DIFF    : integer := 3;
   constant DELAY_PREDICTOR     : integer := 2;
   constant DELAY_WEIGHT_UPDATE : integer := 3;
@@ -49,6 +51,11 @@ package body common is
   begin
     return integer(ceil(log2(real(val))));
   end len2bits;
+
+  function num2bits(val : integer) return integer is
+  begin
+    return integer(log2(real(val))) + 1;
+  end num2bits;
 
   function clip(val : integer; val_min : integer; val_max : integer) return integer is
   begin

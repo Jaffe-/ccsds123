@@ -5,7 +5,6 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.all;
-use ieee.math_real.all;
 use work.common.all;
 
 library xpm;
@@ -23,7 +22,7 @@ entity combiner is
     aresetn : in std_logic;
 
     in_words   : in std_logic_vector(N_WORDS * MAX_LENGTH - 1 downto 0);
-    in_lengths : in unsigned(N_WORDS * len2bits(MAX_LENGTH) - 1 downto 0);
+    in_lengths : in unsigned(N_WORDS * num2bits(MAX_LENGTH) - 1 downto 0);
     in_valid   : in std_logic;
     in_last    : in std_logic;
 
@@ -37,12 +36,12 @@ entity combiner is
 end combiner;
 
 architecture rtl of combiner is
-  constant LENGTH_BITS         : integer := len2bits(MAX_LENGTH);
+  constant LENGTH_BITS         : integer := num2bits(MAX_LENGTH);
   constant BLOCK_SIZE_BITS     : integer := len2bits(BLOCK_SIZE);
   constant MAX_BLOCKS_PER_WORD : integer := (BLOCK_SIZE + MAX_LENGTH) / BLOCK_SIZE;
   constant MAX_BLOCKS          : integer := (BLOCK_SIZE - 1 + N_WORDS * MAX_LENGTH) / BLOCK_SIZE + 1;
 
-  constant COUNTER_SIZE : integer := 1+integer(log2(real(MAX_BLOCKS)));
+  constant COUNTER_SIZE : integer := num2bits(MAX_BLOCKS);
 
   constant FIFO_DEPTH : integer := 128;
 
@@ -197,13 +196,13 @@ begin
       ECC_MODE            => "no_ecc",
       FIFO_WRITE_DEPTH    => FIFO_DEPTH,
       WRITE_DATA_WIDTH    => FIFO_SIZE,
-      WR_DATA_COUNT_WIDTH => 1+integer(log2(real(FIFO_DEPTH))),
+      WR_DATA_COUNT_WIDTH => num2bits(FIFO_DEPTH),
       PROG_FULL_THRESH    => FIFO_DEPTH - FIFO_MARGIN,
       FULL_RESET_VALUE    => 0,
       READ_MODE           => "std",
       FIFO_READ_LATENCY   => 1,
       READ_DATA_WIDTH     => FIFO_SIZE,
-      RD_DATA_COUNT_WIDTH => 1+integer(log2(real(FIFO_DEPTH))),
+      RD_DATA_COUNT_WIDTH => num2bits(FIFO_DEPTH),
       PROG_EMPTY_THRESH   => 10,
       DOUT_RESET_VALUE    => "0",
       WAKEUP_TIME         => 0

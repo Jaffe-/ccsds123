@@ -70,7 +70,7 @@ architecture rtl of ccsds123_top is
   signal pipeline_out_valid    : std_logic_vector(PIPELINES-1 downto 0);
   signal pipeline_out_last     : std_logic_vector(PIPELINES-1 downto 0);
   signal pipeline_out_data     : std_logic_vector(PIPELINES*(UMAX + D)-1 downto 0);
-  signal pipeline_out_num_bits : unsigned(PIPELINES*len2bits(UMAX + D) - 1 downto 0);
+  signal pipeline_out_num_bits : unsigned(PIPELINES*num2bits(UMAX + D) - 1 downto 0);
 
   signal combiner_over_threshold : std_logic;
 
@@ -304,7 +304,7 @@ begin
         in_prev_central_diffs  => prev_central_diffs,
 
         out_data     => pipeline_out_data((i+1)*(UMAX+D)-1 downto i*(UMAX+D)),
-        out_num_bits => pipeline_out_num_bits((i+1)*len2bits(UMAX+D)-1 downto i*len2bits(UMAX+D)),
+        out_num_bits => pipeline_out_num_bits((i+1)*num2bits(UMAX+D)-1 downto i*num2bits(UMAX+D)),
         out_valid    => pipeline_out_valid(i),
         out_last     => pipeline_out_last(i)
         );

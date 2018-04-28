@@ -56,7 +56,7 @@ entity pipeline_top is
     in_prev_central_diffs  : in  signed(P*(D+3)-1 downto 0);
 
     out_data     : out std_logic_vector(UMAX + D - 1 downto 0);
-    out_num_bits : out unsigned(len2bits(UMAX + D)-1 downto 0);
+    out_num_bits : out unsigned(num2bits(UMAX + D)-1 downto 0);
     out_valid    : out std_logic;
     out_last     : out std_logic
     );
