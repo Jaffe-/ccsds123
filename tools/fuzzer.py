@@ -90,9 +90,9 @@ def run_test(fixed_parameters):
         with open('%s/conf.json' % run_dir, 'w') as json_file:
             json.dump(parameters, json_file)
             json.dump(dimensions, json_file)
-        return False
+        return (False, parameters)
 
-    return True
+    return (True, parameters)
 
 def main():
     fixed_parameters = {"D": 16,
@@ -106,10 +106,23 @@ def main():
 
     runs = int(sys.argv[1])
     fails = 0
+    used_parameters = []
     for i in range(0, runs):
-        if not run_test(fixed_parameters.copy()):
+        (passed, parameters) = run_test(fixed_parameters.copy())
+        used_parameters.append(parameters)
+        if not passed:
             fails += 1
         print("********************************************************************************")
 
-    print("Done. %s out of %s tests passed." % (runs-fails, runs))
+    print("Done. %s out of %s tests passed.\n" % (runs-fails, runs))
+    print("Parameters that have been covered:")
+    for (k, _) in used_parameters[0].items():
+        sys.stdout.write("%s: " % k)
+        already_printed = []
+        for i in range(0, runs):
+            val = used_parameters[i][k]
+            if not val in already_printed:
+                sys.stdout.write("%s, " % val)
+                already_printed.append(val)
+        print("\b\b ")
 main()
