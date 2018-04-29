@@ -103,6 +103,8 @@ module top_tb;
             @(posedge clk);
          end
       end
+      while (!(in_tvalid == 1'b1 && in_tready == 1'b1))
+        @(posedge clk);
 
       $fclose(f_in);
 
