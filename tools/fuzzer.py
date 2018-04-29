@@ -9,9 +9,9 @@ def random_range(lower, upper):
     return random.randrange(lower, upper + 1, 1)
 
 def fill_parameters(parameters):
-    D = random_range(2, 16)
+    D = parameters['D'] if 'D' in parameters else random_range(2, 16)
     P = random_range(0, 15)
-    omega = random_range(4, 19)
+    omega = parameters['OMEGA'] if 'OMEGA' in parameters else random_range(4, 19)
     v_min = random_range(-6, 9)
     v_max = random_range(v_min, 9)
     t_inc = random_range(4, 11)
@@ -22,6 +22,7 @@ def fill_parameters(parameters):
     K = random_range(0, D - 2)
     mode = random_range(0, 1)
     locsum_mode = random_range(0, 1)
+    pipelines = random_range(1, 8)
 
     random_params = {"D": D,
                      "P": P,
@@ -36,6 +37,7 @@ def fill_parameters(parameters):
                      "K": K,
                      "mode": "full" if mode == 1 else "reduced",
                      "locsum_mode": "neighbor" if locsum_mode == 1 else "column",
+                     "PIPELINES": pipelines,
     }
 
     # Fill in missing parameters
@@ -54,12 +56,11 @@ def run_test(fixed_parameters):
     print("Parameters:")
     for (k,v) in parameters.items():
         print("%s = %s" % (k, v))
-    pipelines = 3
 
     # Generate random sized cube
     NX = random_range(10, 100)
     NY = random_range(10, 2500/NX)
-    NZ = random_range(3*pipelines, 100)
+    NZ = random_range(3*parameters["PIPELINES"], 100)
 
     dimensions = (NX, NY, NZ)
     gen_cube(img_filename, NX, NY, NZ)
@@ -70,8 +71,9 @@ def run_test(fixed_parameters):
     write_sim_params(dimensions, parameters, verilog_filename)
 
     # Run simulation
-    ret = subprocess.call("./simulate.sh %s %s" % (img_filename, golden_filename), shell=True)
-    if ret != 0:
+    sim_ret = subprocess.call("./simulate.sh %s %s" % (img_filename, golden_filename), shell=True)
+
+    if sim_ret != 0 or not compare_bitstreams("out_0.bin", golden_filename) or not compare_bitstreams("out_1.bin", golden_filename):
         print("Error detected")
 
         # If simulation failed we copy image file and configuration to a new directory so
