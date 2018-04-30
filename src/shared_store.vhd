@@ -72,17 +72,11 @@ begin
   begin
     if (rising_edge(clk)) then
       if (aresetn = '0') then
-        wr_cnt <= 0;
+        rd_cnt <= 0;
 
-        -- Start read count at 1 so that reading is always behind writing.
-        -- Otherwise we can end (due to pipeline stalls) in a situation where
-        -- a read is attempted in the same location as currently being written
-        -- to.
-        if (ELEMENTS mod PIPELINES /= 0) then
-          rd_cnt <= 1;
-        else
-          rd_cnt <= 0;
-        end if;
+        -- Make distance between read and write pointer equal to delay(0, 1)
+        wr_cnt <= ELEMENTS/PIPELINES mod RAM_SIZE;
+
         delay_stages <= (others => (others => '0'));
       else
         if (rd = '1') then
