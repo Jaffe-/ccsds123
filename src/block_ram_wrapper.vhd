@@ -47,85 +47,74 @@ architecture rtl of dp_bram is
     end if;
   end function LOWER_SIZE;
 
-  type ram_t is array (natural range <>) of std_logic_vector(ELEMENT_SIZE-1 downto 0);
-  signal ram_lower : ram_t(0 to LOWER_SIZE-1) := (others => (others => '0'));
-  signal ram_upper : ram_t(0 to REMAINS-1)    := (others => (others => '0'));
-
-  attribute ram_style              : string;
-  attribute ram_style of ram_lower : signal is RAM_TYPE;
-  attribute ram_style of ram_upper : signal is RAM_TYPE;
-
-  signal rddata_upper : std_logic_vector(ELEMENT_SIZE-1 downto 0);
-  signal rddata_lower : std_logic_vector(ELEMENT_SIZE-1 downto 0);
+  signal upper_rddata : std_logic_vector(ELEMENT_SIZE-1 downto 0);
+  signal lower_rddata : std_logic_vector(ELEMENT_SIZE-1 downto 0);
 
   signal wr_is_lower     : std_logic;
   signal rd_is_lower     : std_logic;
   signal rd_is_lower_reg : std_logic;
-  signal wr_upper_addr   : integer range 0 to REMAINS-1;
-  signal rd_upper_addr   : integer range 0 to REMAINS-1;
+  signal lower_wr        : std_logic;
+  signal lower_rd        : std_logic;
 begin
   g_ctrls : if (SPLIT_RAMS) generate
-    wr_is_lower   <= '1' when wraddr < LOWER_POW2 else '0';
-    wr_upper_addr <= wraddr - LOWER_POW2;
-    rd_is_lower   <= '1' when rdaddr < LOWER_POW2 else '0';
-    rd_upper_addr <= rdaddr - LOWER_POW2;
-
-    rd_is_lower_reg <= rd_is_lower when rising_edge(clk);
   end generate g_ctrls;
 
-  process (rddata_lower, rddata_upper, rd_is_lower_reg)
+  lower_wr <= wr when not SPLIT_RAMS or wr_is_lower = '1' else '0';
+  lower_rd <= rd when not SPLIT_RAMS or rd_is_lower = '1' else '0';
+
+  process (lower_rddata, upper_rddata, rd_is_lower_reg)
   begin
-    rddata <= rddata_lower;
-    if (SPLIT_RAMS and REMAINS > 0 and rd_is_lower_reg = '0') then
-      rddata <= rddata_upper;
+    rddata <= lower_rddata;
+    if (SPLIT_RAMS and rd_is_lower_reg = '0') then
+      rddata <= upper_rddata;
     end if;
   end process;
 
-  process (clk)
+  i_lower_ram : entity work.dp_ram
+    generic map (
+      ELEMENTS     => LOWER_SIZE,
+      ELEMENT_SIZE => ELEMENT_SIZE,
+      RAM_TYPE     => RAM_TYPE)
+    port map (
+      clk     => clk,
+      aresetn => aresetn,
+      wr      => lower_wr,
+      wraddr  => wraddr,
+      wrdata  => wrdata,
+      rd      => lower_rd,
+      rdaddr  => rdaddr,
+      rddata  => lower_rddata);
+
+  g_upper : if (SPLIT_RAMS) generate
+    signal upper_wraddr : integer range 0 to REMAINS-1;
+    signal upper_rdaddr : integer range 0 to REMAINS-1;
+    signal upper_rd     : std_logic;
+    signal upper_wr     : std_logic;
   begin
-    if (rising_edge(clk)) then
-      if (aresetn = '0') then
-        rddata_lower <= (others => '0');
-      end if;
+    wr_is_lower <= '1' when wraddr < LOWER_POW2 else '0';
+    rd_is_lower <= '1' when rdaddr < LOWER_POW2 else '0';
 
-      if (rd = '1' and (not SPLIT_RAMS or rd_is_lower = '1')) then
-        rddata_lower <= ram_lower(rdaddr);
-      end if;
-    end if;
-  end process;
+    rd_is_lower_reg <= rd_is_lower when rising_edge(clk);
 
-  g_rd_upper : if (SPLIT_RAMS and REMAINS > 0) generate
-    process (clk)
-    begin
-      if (rising_edge(clk)) then
-        if (aresetn = '0') then
-          rddata_upper <= (others => '0');
-        end if;
+    upper_wraddr <= wraddr - LOWER_POW2;
+    upper_rdaddr <= rdaddr - LOWER_POW2;
+    upper_wr     <= wr when wr_is_lower = '0' else '0';
+    upper_rd     <= rd when rd_is_lower = '0' else '0';
 
-        if (rd = '1' and rd_is_lower = '0') then
-          rddata_upper <= ram_upper(rd_upper_addr);
-        end if;
-      end if;
-    end process;
-  end generate g_rd_upper;
+    i_upper_ram : entity work.dp_ram
+      generic map (
+        ELEMENTS     => REMAINS,
+        ELEMENT_SIZE => ELEMENT_SIZE,
+        RAM_TYPE     => RAM_TYPE)
+      port map (
+        clk     => clk,
+        aresetn => aresetn,
+        wr      => upper_wr,
+        wraddr  => upper_wraddr,
+        wrdata  => wrdata,
+        rd      => upper_rd,
+        rdaddr  => upper_rdaddr,
+        rddata  => upper_rddata);
+  end generate g_upper;
 
-  process (clk)
-  begin
-    if (rising_edge(clk)) then
-      if (wr = '1' and (not SPLIT_RAMS or wr_is_lower = '1')) then
-        ram_lower(wraddr) <= wrdata;
-      end if;
-    end if;
-  end process;
-
-  g_wr_upper : if (SPLIT_RAMS and REMAINS > 0) generate
-    process (clk)
-    begin
-      if (rising_edge(clk)) then
-        if (wr = '1' and wr_is_lower = '0') then
-          ram_upper(wr_upper_addr) <= wrdata;
-        end if;
-      end if;
-    end process;
-  end generate g_wr_upper;
 end rtl;
