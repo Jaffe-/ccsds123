@@ -66,7 +66,8 @@ begin
     i_w_fifo : entity work.fifo
       generic map (
         ELEMENT_SIZE => D,
-        SIZE         => (NZ + i) / PIPELINES)
+        SIZE         => (NZ + i) / PIPELINES,
+        RAM_TYPE     => "distributed")
       port map (
         clk      => clk,
         aresetn  => aresetn,
@@ -92,7 +93,8 @@ begin
     i_n_fifo : entity work.fifo
       generic map (
         ELEMENT_SIZE => D,
-        SIZE         => (NZ + i) / PIPELINES)
+        SIZE         => (NZ + i) / PIPELINES,
+        RAM_TYPE     => "distributed")
       port map (
         clk      => clk,
         aresetn  => aresetn,
@@ -105,7 +107,8 @@ begin
     i_nw_fifo : entity work.fifo
       generic map (
         ELEMENT_SIZE => D,
-        SIZE         => (NZ + i) / PIPELINES)
+        SIZE         => (NZ + i) / PIPELINES,
+        RAM_TYPE     => "distributed")
       port map (
         clk      => clk,
         aresetn  => aresetn,

@@ -54,7 +54,8 @@ begin
     i_bram : entity work.dp_bram
       generic map (
         ELEMENTS     => RAM_SIZE,
-        ELEMENT_SIZE => ELEMENT_SIZE)
+        ELEMENT_SIZE => ELEMENT_SIZE,
+        RAM_TYPE     => "distributed")
       port map (
         clk     => clk,
         aresetn => aresetn,
