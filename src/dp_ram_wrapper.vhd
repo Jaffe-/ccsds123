@@ -7,11 +7,14 @@ use ieee.math_real.all;
 --------------------------------------------------------------------------------
 -- Dual port Block RAM wrapper
 --
--- RAM is split into two parts beacuse of Vivado's incompetence in inferring
+-- RAM is split into several parts beacuse of Vivado's incompetence in inferring
 -- block RAMs effectively; the depth is always expanded to nearest power of 2.
+--
+-- The number of elements is decomposed into powers of 2 by the decompose function.
+-- The decompose function returns an array with two properties:
 --------------------------------------------------------------------------------
 
-entity dp_bram is
+entity dp_ram_wrapper is
   generic (
     ELEMENTS     : integer := 21760;
     ELEMENT_SIZE : integer := 16;
@@ -28,9 +31,23 @@ entity dp_bram is
     rdaddr : in  integer range 0 to ELEMENTS-1;
     rddata : out std_logic_vector(ELEMENT_SIZE-1 downto 0)
     );
-end dp_bram;
+end dp_ram_wrapper;
 
-architecture rtl of dp_bram is
+architecture rtl of dp_ram_wrapper is
+  constant SMALLEST_BANK_LOG2 : integer := 10;
+  constant OPTIMIZE           : boolean := RAM_TYPE = "block" and ELEMENTS > 2**SMALLEST_BANK_LOG2;
+
+  function calc_n_banks return integer is
+  begin
+    if (OPTIMIZE) then
+      return max(1, integer(log2(real(ELEMENTS))) - SMALLEST_BANK_LOG2 + 2);
+    else
+      return 1;
+    end if;
+  end calc_n_banks;
+
+  constant N_BANKS : integer := calc_n_banks;
+
   type int_arr_t is array (natural range <>) of integer;
 
   -- Decompose n into powers of 2
@@ -40,7 +57,7 @@ architecture rtl of dp_bram is
     variable remains    : integer := n;
     variable sum        : integer := 0;
   begin
-    if (upper > lower) then
+    if (OPTIMIZE and upper > lower) then
       for i in upper downto lower loop
         if (remains > 2**i) then
           bank_start(1 + i - lower) := sum;
@@ -61,16 +78,13 @@ architecture rtl of dp_bram is
     return bank_start;
   end decompose;
 
-  constant SMALLEST_BANK_LOG2 : integer := 10;
-  constant N_COEFFS : integer := max(1, integer(log2(real(ELEMENTS))) - SMALLEST_BANK_LOG2 + 2);
+  constant BANK_START : int_arr_t := decompose(ELEMENTS, SMALLEST_BANK_LOG2, N_BANKS);
 
-  constant BANK_START : int_arr_t := decompose(ELEMENTS, SMALLEST_BANK_LOG2, N_COEFFS);
-
-  type rddata_arr_t is array(0 to N_COEFFS-1) of std_logic_vector(ELEMENT_SIZE-1 downto 0);
+  type rddata_arr_t is array(0 to N_BANKS-1) of std_logic_vector(ELEMENT_SIZE-1 downto 0);
   signal rddata_arr : rddata_arr_t;
 
-  signal rd_arr     : std_logic_vector(N_COEFFS-1 downto 0);
-  signal rd_arr_reg : std_logic_vector(N_COEFFS-1 downto 0);
+  signal rd_arr     : std_logic_vector(N_BANKS-1 downto 0);
+  signal rd_arr_reg : std_logic_vector(N_BANKS-1 downto 0);
 begin
   g_banks : for i in BANK_START'range generate
     g_bank : if (BANK_START(i) /= -1) generate

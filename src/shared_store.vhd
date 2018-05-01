@@ -51,7 +51,7 @@ begin
     -- Read data maps directly to pipelines
     rd_data_vec((i+1)*ELEMENT_SIZE-1 downto i*ELEMENT_SIZE) <= rd_data_arr(i);
 
-    i_bram : entity work.dp_bram
+    i_ram : entity work.dp_ram_wrapper
       generic map (
         ELEMENTS     => RAM_SIZE,
         ELEMENT_SIZE => ELEMENT_SIZE,

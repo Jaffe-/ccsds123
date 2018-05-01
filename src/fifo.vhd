@@ -24,7 +24,7 @@ architecture rtl of fifo is
   signal rd_idx : integer range 0 to SIZE-1;
   signal wr_idx : integer range 0 to SIZE-1;
 begin
-  i_dp_bram : entity work.dp_bram
+  i_dp_bram : entity work.dp_ram_wrapper
     generic map (
       ELEMENTS     => SIZE,
       ELEMENT_SIZE => ELEMENT_SIZE,
