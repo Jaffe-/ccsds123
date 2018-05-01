@@ -31,90 +31,98 @@ entity dp_bram is
 end dp_bram;
 
 architecture rtl of dp_bram is
+  type int_arr_t is array (natural range <>) of integer;
 
-  constant LOWER_POW2 : integer := 2**integer(log2(real(ELEMENTS)));
-  constant REMAINS    : integer := ELEMENTS - LOWER_POW2;
-
-  -- Only split RAMs when size is big enough, REMAINS > 0 and we actually want block RAMs
-  constant SPLIT_RAMS : boolean := LOWER_POW2 >= 1024 and REMAINS > 0 and RAM_TYPE = "block";
-
-  function LOWER_SIZE return integer is
+  -- Decompose n into powers of 2
+  function decompose(n : integer; lower : integer; num : integer) return int_arr_t is
+    constant upper      : integer := integer(log2(real(n)));
+    variable bank_start : int_arr_t(0 to num-1);
+    variable remains    : integer := n;
+    variable sum        : integer := 0;
   begin
-    if (SPLIT_RAMS) then
-      return LOWER_POW2;
+    if (upper > lower) then
+      for i in upper downto lower loop
+        if (remains > 2**i) then
+          bank_start(1 + i - lower) := sum;
+          remains                   := remains - 2**i;
+          sum                       := sum + 2**i;
+        else
+          bank_start(1 + i - lower) := -1;
+        end if;
+      end loop;
+    end if;
+
+    if (remains > 0) then
+      bank_start(0) := sum;
     else
-      return ELEMENTS;
+      bank_start(0) := -1;
     end if;
-  end function LOWER_SIZE;
 
-  signal upper_rddata : std_logic_vector(ELEMENT_SIZE-1 downto 0);
-  signal lower_rddata : std_logic_vector(ELEMENT_SIZE-1 downto 0);
+    return bank_start;
+  end decompose;
 
-  signal wr_is_lower     : std_logic;
-  signal rd_is_lower     : std_logic;
-  signal rd_is_lower_reg : std_logic;
-  signal lower_wr        : std_logic;
-  signal lower_rd        : std_logic;
+  constant SMALLEST_BANK_LOG2 : integer := 10;
+  constant N_COEFFS : integer := max(1, integer(log2(real(ELEMENTS))) - SMALLEST_BANK_LOG2 + 2);
+
+  constant BANK_START : int_arr_t := decompose(ELEMENTS, SMALLEST_BANK_LOG2, N_COEFFS);
+
+  type rddata_arr_t is array(0 to N_COEFFS-1) of std_logic_vector(ELEMENT_SIZE-1 downto 0);
+  signal rddata_arr : rddata_arr_t;
+
+  signal rd_arr     : std_logic_vector(N_COEFFS-1 downto 0);
+  signal rd_arr_reg : std_logic_vector(N_COEFFS-1 downto 0);
 begin
-  g_ctrls : if (SPLIT_RAMS) generate
-  end generate g_ctrls;
+  g_banks : for i in BANK_START'range generate
+    g_bank : if (BANK_START(i) /= -1) generate
+      function get_size return integer is
+      begin
+        if (i > 0) then
+          return 2**(SMALLEST_BANK_LOG2 + i - 1);
+        else
+          return ELEMENTS - BANK_START(0);
+        end if;
+      end get_size;
 
-  lower_wr <= wr when not SPLIT_RAMS or wr_is_lower = '1' else '0';
-  lower_rd <= rd when not SPLIT_RAMS or rd_is_lower = '1' else '0';
+      constant SIZE : integer := get_size;
 
-  process (lower_rddata, upper_rddata, rd_is_lower_reg)
+      signal this_wraddr : integer range 0 to SIZE-1;
+      signal this_rdaddr : integer range 0 to SIZE-1;
+      signal this_wr     : std_logic;
+      signal this_rd     : std_logic;
+    begin
+      this_wr     <= wr when wraddr >= BANK_START(i) and wraddr < BANK_START(i) + SIZE else '0';
+      this_rd     <= rd when rdaddr >= BANK_START(i) and rdaddr < BANK_START(i) + SIZE else '0';
+      rd_arr(i)   <= this_rd;
+      this_wraddr <= wraddr - BANK_START(i);
+      this_rdaddr <= rdaddr - BANK_START(i);
+      i_ram : entity work.dp_ram
+        generic map (
+          ELEMENTS     => SIZE,
+          ELEMENT_SIZE => ELEMENT_SIZE,
+          RAM_TYPE     => RAM_TYPE)
+        port map (
+          clk     => clk,
+          aresetn => aresetn,
+          wr      => this_wr,
+          wraddr  => this_wraddr,
+          wrdata  => wrdata,
+          rd      => this_rd,
+          rdaddr  => this_rdaddr,
+          rddata  => rddata_arr(i));
+    end generate g_bank;
+  end generate g_banks;
+
+  rd_arr_reg <= rd_arr when rising_edge(clk) and rd = '1';
+
+  -- Select which bank to get read data from
+  process (rddata_arr, rd_arr_reg)
   begin
-    rddata <= lower_rddata;
-    if (SPLIT_RAMS and rd_is_lower_reg = '0') then
-      rddata <= upper_rddata;
-    end if;
+    rddata <= rddata_arr(0);
+    for i in BANK_START'range loop
+      if (BANK_START(i) /= -1 and rd_arr_reg(i) = '1') then
+        rddata <= rddata_arr(i);
+      end if;
+    end loop;
   end process;
-
-  i_lower_ram : entity work.dp_ram
-    generic map (
-      ELEMENTS     => LOWER_SIZE,
-      ELEMENT_SIZE => ELEMENT_SIZE,
-      RAM_TYPE     => RAM_TYPE)
-    port map (
-      clk     => clk,
-      aresetn => aresetn,
-      wr      => lower_wr,
-      wraddr  => wraddr,
-      wrdata  => wrdata,
-      rd      => lower_rd,
-      rdaddr  => rdaddr,
-      rddata  => lower_rddata);
-
-  g_upper : if (SPLIT_RAMS) generate
-    signal upper_wraddr : integer range 0 to REMAINS-1;
-    signal upper_rdaddr : integer range 0 to REMAINS-1;
-    signal upper_rd     : std_logic;
-    signal upper_wr     : std_logic;
-  begin
-    wr_is_lower <= '1' when wraddr < LOWER_POW2 else '0';
-    rd_is_lower <= '1' when rdaddr < LOWER_POW2 else '0';
-
-    rd_is_lower_reg <= rd_is_lower when rising_edge(clk);
-
-    upper_wraddr <= wraddr - LOWER_POW2;
-    upper_rdaddr <= rdaddr - LOWER_POW2;
-    upper_wr     <= wr when wr_is_lower = '0' else '0';
-    upper_rd     <= rd when rd_is_lower = '0' else '0';
-
-    i_upper_ram : entity work.dp_ram
-      generic map (
-        ELEMENTS     => REMAINS,
-        ELEMENT_SIZE => ELEMENT_SIZE,
-        RAM_TYPE     => RAM_TYPE)
-      port map (
-        clk     => clk,
-        aresetn => aresetn,
-        wr      => upper_wr,
-        wraddr  => upper_wraddr,
-        wrdata  => wrdata,
-        rd      => upper_rd,
-        rdaddr  => upper_rdaddr,
-        rddata  => upper_rddata);
-  end generate g_upper;
 
 end rtl;
