@@ -55,6 +55,13 @@ architecture rtl of packer is
   signal from_chain_last              : std_logic_vector(N_CHAINS-1 downto 0);
   signal from_chain_valid             : std_logic_vector(N_CHAINS-1 downto 0);
 
+  type foo_remaining_arr_t is array (0 to N_CHAINS-1) of std_logic_vector(BLOCK_SIZE-1 downto 0);
+  signal foo_remains : foo_remaining_arr_t;
+
+  signal prfoo                 : std_logic_vector(BLOCK_SIZE-1 downto 0);
+  signal prev_remaining        : std_logic_vector(BLOCK_SIZE-2 downto 0);
+  signal prev_remaining_length : unsigned(len2bits(BLOCK_SIZE)-1 downto 0);
+
   constant COUNTER_SIZE : integer := num2bits(MAX_BLOCKS);
 
   constant FIFO_DEPTH : integer := 128;
@@ -66,25 +73,33 @@ architecture rtl of packer is
   constant FIFO_MARGIN : integer := 30;
 
   -- Element size in FIFO:
-  --   * Data (blocks): MAX_BLOCKS * BLOCK_SIZE bits
-  --   * Counter:       COUNTER_SIZE bits
-  --   * Last flag:     1 bit
-  constant FIFO_SIZE : integer := MAX_BLOCKS * BLOCK_SIZE + COUNTER_SIZE + 1;
+  --   * Data (blocks):  MAX_BLOCKS * BLOCK_SIZE
+  --   * Counter:        COUNTER_SIZE bits
+  --   * Remaining bits: BLOCK_SIZE - 1
+  --   * Remaining len:  len2bits(BLOCK_SIZE)
+  --   * Last flag:      1
+  constant FIFO_SIZE : integer := MAX_BLOCKS * BLOCK_SIZE + COUNTER_SIZE + BLOCK_SIZE - 1 + len2bits(BLOCK_SIZE) + 1;
 
   type full_blocks_t is array (0 to MAX_BLOCKS-1) of std_logic_vector(BLOCK_SIZE-1 downto 0);
 
-  signal fifo_rst         : std_logic;
-  signal fifo_rden        : std_logic;
-  signal fifo_wren        : std_logic;
-  signal fifo_empty       : std_logic;
-  signal fifo_in          : std_logic_vector(FIFO_SIZE-1 downto 0);
-  signal fifo_out         : std_logic_vector(FIFO_SIZE-1 downto 0);
-  signal to_fifo_count    : integer range 0 to MAX_BLOCKS;
-  signal to_fifo_last     : std_logic;
-  signal from_fifo_last   : std_logic;
-  signal from_fifo_valid  : std_logic;
-  signal from_fifo_count  : integer range 0 to MAX_BLOCKS;
-  signal from_fifo_blocks : full_blocks_t;
+  signal fifo_rst   : std_logic;
+  signal fifo_rden  : std_logic;
+  signal fifo_wren  : std_logic;
+  signal fifo_empty : std_logic;
+  signal fifo_in    : std_logic_vector(FIFO_SIZE-1 downto 0);
+  signal fifo_out   : std_logic_vector(FIFO_SIZE-1 downto 0);
+
+  signal to_fifo_count : integer range 0 to MAX_BLOCKS;
+  signal to_fifo_last  : std_logic;
+
+  signal from_fifo_last                  : std_logic;
+  signal from_fifo_valid                 : std_logic;
+  signal from_fifo_count                 : integer range 0 to MAX_BLOCKS;
+  signal from_fifo_blocks                : full_blocks_t;
+  signal from_fifo_prev_remaining        : std_logic_vector(BLOCK_SIZE-2 downto 0);
+  signal from_fifo_prev_remaining_length : integer range 0 to BLOCK_SIZE-1;
+  signal shifted_block                   : std_logic_vector(BLOCK_SIZE-1 downto 0);
+  signal rd_flag                         : std_logic;
 
   signal out_handshake : std_logic;
 
@@ -166,43 +181,20 @@ begin
       to_chain_valid   <= in_valid;
     end generate g_nodelay;
 
-    process (from_chain_full_blocks, from_chain_full_blocks_count, from_chain_remaining, from_chain_remaining_length,
-             from_chain_last, from_chain_valid, in_last, in_valid)
+    process (from_chain_full_blocks, from_chain_full_blocks_count, from_chain_remaining, from_chain_remaining_length)
       variable leftover_length : integer range 0 to 2*(BLOCK_SIZE-1);
       variable fb_count        : integer range 0 to MAX_BLOCKS;
     begin
       if (i = 0) then
         to_chain_full_blocks       <= (others => '0');
         to_chain_full_blocks_count <= 0;
-
-        -- Special case when only one combiner chain is used, then we take
-        -- leftovers from the same combiner chain
-        if (i = N_CHAINS-1) then
-          to_chain_remaining        <= from_chain_remaining(0);
-          to_chain_remaining_length <= from_chain_remaining_length(0);
-        else
-          to_chain_remaining        <= (others => '0');
-          to_chain_remaining_length <= (others => '0');
-        end if;
+        to_chain_remaining         <= (others => '0');
+        to_chain_remaining_length  <= (others => '0');
       else
         to_chain_full_blocks       <= from_chain_full_blocks(i-1);
         to_chain_full_blocks_count <= from_chain_full_blocks_count(i-1);
         to_chain_remaining         <= from_chain_remaining(i-1);
         to_chain_remaining_length  <= from_chain_remaining_length(i-1);
-
-        if (i = N_CHAINS-1) then
-          to_chain_full_blocks <= (from_chain_remaining(i) & ((MAX_BLOCKS-1)*BLOCK_SIZE downto 0 => '0'))
-                                  or std_logic_vector(shift_right(unsigned(from_chain_full_blocks(i-1)),
-                                                                  to_integer(from_chain_remaining_length_delayed(i))));
-
-          leftover_length := to_integer(from_chain_remaining_length_delayed(i) + from_chain_remaining_length_delayed(i-1));
-          if (leftover_length >= BLOCK_SIZE) then
-            fb_count                   := from_chain_full_blocks_count(i-1) + 1;
-            to_chain_full_blocks_count <= fb_count;
-            to_chain_remaining_length  <= to_unsigned(leftover_length - BLOCK_SIZE, len2bits(BLOCK_SIZE));
-            to_chain_remaining         <= from_chain_full_blocks(i-1)(fb_count*BLOCK_SIZE+BLOCK_SIZE-2 downto fb_count*BLOCK_SIZE);
-          end if;
-        end if;
       end if;
     end process;
 
@@ -233,7 +225,39 @@ begin
         out_full_blocks_count => from_chain_full_blocks_count(i),
         out_last              => from_chain_last(i),
         out_valid             => from_chain_valid(i));
+
+    foo_remains(i) <= from_chain_remaining(i) & '0';
   end generate g_chains;
+
+  prfoo <= prev_remaining & '0';
+  -- Collect remaining bits
+  process (clk)
+  begin
+    if (rising_edge(clk)) then
+      if (aresetn = '0') then
+        prev_remaining        <= (others => '0');
+        prev_remaining_length <= (others => '0');
+      elsif (from_chain_valid(N_CHAINS-1) = '1') then
+        prev_remaining        <= from_chain_remaining(N_CHAINS-1);
+        prev_remaining_length <= from_chain_remaining_length(N_CHAINS-1);
+      --else
+      --  extended_rem  := from_chain_remaining(N_CHAINS-1) & (BLOCK_SIZE-2 downto 0 => '0');
+      --  combined_bits := (bits & (BLOCK_SIZE-2 downto 0                            => '0')) or shift_right(unsigned(extended_rem), n_bits);
+      --  new_length    := to_integer(from_chain_remaining_length) + n_bits;
+
+      --  if (new_length >= BLOCK_SIZE) then
+      --    to_fifo_blocks(BLOCK_SIZE-1 downto 0) <= combined_bits(2*BLOCK_SIZE-2 downto BLOCK_SIZE-1);
+      --    to_fifo_count                         <= 1;
+
+      --    bits   := combined_bits(BLOCK_SIZE-2 downto 0);
+      --    n_bits := new_length - BLOCK_SIZE;
+      --  else
+      --    prev_remaining        <= bits;
+      --    prev_remaining_length <= n_bits;
+      --  end if;
+      end if;
+    end if;
+  end process;
 
   --------------------------------------------------------------------------------
   -- Block output
@@ -245,12 +269,13 @@ begin
     else
       fifo_wren <= '0';
     end if;
-
-    fifo_in(MAX_BLOCKS*BLOCK_SIZE-1 downto 0) <= from_chain_full_blocks(N_CHAINS-1);
-    fifo_in(MAX_BLOCKS*BLOCK_SIZE+COUNTER_SIZE-1 downto MAX_BLOCKS*BLOCK_SIZE)
-      <= std_logic_vector(to_unsigned(from_chain_full_blocks_count(N_CHAINS-1), COUNTER_SIZE));
-    fifo_in(fifo_in'high) <= from_chain_last(N_CHAINS-1);
   end process;
+
+  fifo_in <= from_chain_last(N_CHAINS-1)
+             & std_logic_vector(prev_remaining_length)
+             & prev_remaining
+             & std_logic_vector(to_unsigned(from_chain_full_blocks_count(N_CHAINS-1), COUNTER_SIZE))
+             & from_chain_full_blocks(N_CHAINS-1);
 
   fifo_rst <= not aresetn;
 
@@ -298,13 +323,25 @@ begin
   fifo_rden <= '1' when fifo_empty = '0' and (from_fifo_valid = '0' or
                                               (out_handshake = '1' and counter = from_fifo_count - 1))
                else '0';
-  from_fifo_count <= to_integer(unsigned(fifo_out(fifo_out'high - 1 downto fifo_out'high - COUNTER_SIZE)));
-  from_fifo_last  <= fifo_out(fifo_out'high);
+
   process (fifo_out)
+    variable idx : integer;
   begin
     for i in from_fifo_blocks'range loop
       from_fifo_blocks(i) <= fifo_out((i+1)*BLOCK_SIZE-1 downto i*BLOCK_SIZE);
     end loop;
+    idx := MAX_BLOCKS*BLOCK_SIZE;
+
+    from_fifo_count <= to_integer(unsigned(fifo_out(idx + COUNTER_SIZE - 1 downto idx)));
+    idx             := idx + COUNTER_SIZE;
+
+    from_fifo_prev_remaining <= fifo_out(idx + BLOCK_SIZE - 2 downto idx);
+    idx                      := idx + BLOCK_SIZE - 1;
+
+    from_fifo_prev_remaining_length <= to_integer(unsigned(fifo_out(idx + len2bits(BLOCK_SIZE) - 1 downto idx)));
+    idx                             := idx + len2bits(BLOCK_SIZE);
+
+    from_fifo_last <= fifo_out(idx);
   end process;
 
   process (clk)
@@ -326,18 +363,44 @@ begin
     end if;
   end process;
 
+  rd_flag <= fifo_rden when rising_edge(clk);
+
   out_handshake <= from_fifo_valid and out_ready;
   out_valid     <= from_fifo_valid;
 
-  process (counter, from_fifo_last, from_fifo_count, from_fifo_blocks)
+  process (clk)
+    variable leftover       : std_logic_vector(BLOCK_SIZE-2 downto 0);
+    variable shifted_data   : std_logic_vector(2*BLOCK_SIZE-2 downto 0);
+    variable extended_block : std_logic_vector(2*BLOCK_SIZE-2 downto 0);
+    variable num_shift      : integer range 0 to BLOCK_SIZE-1;
+  begin
+    if (rising_edge(clk)) then
+      if (aresetn = '0') then
+        leftover  := (others => '0');
+        num_shift := 0;
+      else
+        if (rd_flag = '1') then
+          leftover  := from_fifo_prev_remaining;
+          num_shift := from_fifo_prev_remaining_length;
+        end if;
+        extended_block := from_fifo_blocks(counter) & (BLOCK_SIZE-2 downto 0 => '0');
+        shifted_data   := std_logic_vector(shift_right(unsigned(extended_block), num_shift))
+                        or (leftover & (BLOCK_SIZE-1 downto 0 => '0'));
+        shifted_block <= shifted_data(2*BLOCK_SIZE-2 downto BLOCK_SIZE-1);
+        leftover      := shifted_data(BLOCK_SIZE-2 downto 0);
+      end if;
+    end if;
+  end process;
+
+  process (shifted_block, from_fifo_last, from_fifo_count, from_fifo_blocks)
   begin
     -- Perform optional endianness swap
     if (LITTLE_ENDIAN) then
       for i in 0 to BLOCK_SIZE/8-1 loop
-        out_data((i+1)*8-1 downto i*8) <= from_fifo_blocks(counter)((BLOCK_SIZE/8-i)*8-1 downto ((BLOCK_SIZE/8-i-1)*8));
+        out_data((i+1)*8-1 downto i*8) <= shifted_block((BLOCK_SIZE/8-i)*8-1 downto ((BLOCK_SIZE/8-i-1)*8));
       end loop;
     else
-      out_data <= from_fifo_blocks(counter);
+      out_data <= shifted_block;
     end if;
 
     if (from_fifo_last = '1' and counter = from_fifo_count - 1) then

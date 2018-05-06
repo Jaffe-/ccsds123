@@ -25,13 +25,12 @@ entity combiner_chain is
     in_full_blocks       : in std_logic_vector(BLOCK_SIZE*IN_MAX_BLOCKS-1 downto 0);
     in_full_blocks_count : in integer range 0 to IN_MAX_BLOCKS;
 
-    out_remaining                : out std_logic_vector(BLOCK_SIZE-2 downto 0);
-    out_remaining_length         : out unsigned(len2bits(BLOCK_SIZE)-1 downto 0);
-    out_remaining_length_delayed : out unsigned(len2bits(BLOCK_SIZE)-1 downto 0);
-    out_full_blocks              : out std_logic_vector(BLOCK_SIZE*(IN_MAX_BLOCKS + MAX_BLOCKS)-1 downto 0);
-    out_full_blocks_count        : out integer range 0 to BLOCK_SIZE*(IN_MAX_BLOCKS + MAX_BLOCKS);
-    out_last                     : out std_logic;
-    out_valid                    : out std_logic
+    out_remaining         : out std_logic_vector(BLOCK_SIZE-2 downto 0);
+    out_remaining_length  : out unsigned(len2bits(BLOCK_SIZE)-1 downto 0);
+    out_full_blocks       : out std_logic_vector(BLOCK_SIZE*(IN_MAX_BLOCKS + MAX_BLOCKS)-1 downto 0);
+    out_full_blocks_count : out integer range 0 to BLOCK_SIZE*(IN_MAX_BLOCKS + MAX_BLOCKS);
+    out_last              : out std_logic;
+    out_valid             : out std_logic
     );
 end combiner_chain;
 
@@ -43,13 +42,15 @@ architecture rtl of combiner_chain is
   type word_arr_t is array (0 to 1, 0 to N_WORDS-1) of std_logic_vector(BLOCK_SIZE + MAX_LENGTH - 2 downto 0);
   type shift_arr_t is array (0 to N_WORDS-1) of integer range 0 to BLOCK_SIZE-1;
   type n_blocks_arr_t is array (0 to 1, 0 to N_WORDS-1) of integer range 0 to MAX_BLOCKS_PER_WORD;
+  type remaining_length_arr_t is array (0 to 1) of integer range 0 to BLOCK_SIZE-1;
 
-  signal shift_arr       : shift_arr_t;
-  signal n_blocks_arr    : n_blocks_arr_t;
-  signal words           : word_arr_t;
-  signal valid_regs      : std_logic_vector(1 downto 0);
-  signal last_regs       : std_logic_vector(1 downto 0);
-  signal last_flush_regs : std_logic_vector(1 downto 0);
+  signal shift_arr             : shift_arr_t;
+  signal n_blocks_arr          : n_blocks_arr_t;
+  signal words                 : word_arr_t;
+  signal valid_regs            : std_logic_vector(1 downto 0);
+  signal last_regs             : std_logic_vector(1 downto 0);
+  signal last_flush_regs       : std_logic_vector(1 downto 0);
+  signal remaining_length_regs : remaining_length_arr_t;
 begin
 
   process (clk)
@@ -60,6 +61,13 @@ begin
     variable temp               : std_logic_vector(BLOCK_SIZE + MAX_LENGTH-2 downto 0);
     variable count              : integer range 0 to IN_MAX_BLOCKS + MAX_BLOCKS;
     variable full_blocks        : std_logic_vector(BLOCK_SIZE*(IN_MAX_BLOCKS + MAX_BLOCKS)-1 downto 0);
+
+    variable bits                : std_logic_vector(BLOCK_SIZE-2 downto 0);
+    variable n_bits              : integer range 0 to BLOCK_SIZE-1;
+    variable combined_bits       : std_logic_vector(2*(BLOCK_SIZE-1)-1 downto 0);
+    variable extended_rem        : std_logic_vector(2*(BLOCK_SIZE-1)-1 downto 0);
+    variable new_length          : integer range 0 to BLOCK_SIZE*2-2;
+    variable remaining_bits_prev : std_logic_vector(BLOCK_SIZE - 2 downto 0);
   begin
     if (rising_edge(clk)) then
       if (aresetn = '0') then
@@ -69,6 +77,9 @@ begin
         out_remaining_length  <= (others => '0');
         out_remaining         <= (others => '0');
         out_full_blocks_count <= 0;
+        bits                  := (others => '0');
+        n_bits                := 0;
+        remaining_bits_prev   := (others => '0');
       else
         --------------------------------------------------------------------------------
         -- Stage 1 - Compute shift amounts and number of blocks
@@ -98,7 +109,7 @@ begin
         end if;
         valid_regs(0)            <= in_valid;
         last_regs(0)             <= in_last;
-        remaining_length_regs(0) <= num_remaining_bits;
+        remaining_length_regs(0) <= to_integer(num_remaining_bits);
 
         --------------------------------------------------------------------------------
         -- Stage 2 - Shift each incoming word
@@ -119,7 +130,7 @@ begin
         --------------------------------------------------------------------------------
         remaining_bits := in_remaining;
         count          := in_full_blocks_count;
-        full_blocks    := in_full_blocks & (MAX_BLOCKS*BLOCK_SIZE-1 downto 0 => '0');
+        full_blocks    := (MAX_BLOCKS*BLOCK_SIZE-1 downto 0 => '0') & in_full_blocks;
         if (valid_regs(1) = '1') then
           for i in 0 to N_WORDS-1 loop
             temp := (remaining_bits & (MAX_LENGTH-1 downto 0 => '0')) or words(1, i);
@@ -137,19 +148,37 @@ begin
 
           -- If last is 1 and we have some bits left over after extracting
           -- blocks, then we put these into a new block
-          if (LAST_IN_CHAIN and last_regs(1) = '1' and last_flush_regs(1) = '1') then
-            full_blocks(BLOCK_SIZE*(count+1)-1 downto BLOCK_SIZE*count) := remaining_bits & '0';
+          if (LAST_IN_CHAIN) then
+            if (last_regs(1) = '1' and last_flush_regs(1) = '1') then
+              full_blocks(BLOCK_SIZE*(count+1)-1 downto BLOCK_SIZE*count) := remaining_bits & '0';
 
-            count          := count + 1;
-            remaining_bits := (others => '0');
+              count          := count + 1;
+              remaining_bits := (others => '0');
+            end if;
+
+            extended_rem  := remaining_bits & (BLOCK_SIZE-2 downto 0       => '0');
+            combined_bits := (remaining_bits_prev & (BLOCK_SIZE-2 downto 0 => '0'))
+                             or std_logic_vector(shift_right(unsigned(extended_rem), n_bits));
+            new_length := remaining_length_regs(1) + n_bits;
+
+            if (new_length >= BLOCK_SIZE) then
+              full_blocks(BLOCK_SIZE*(count+1)-1 downto BLOCK_SIZE*count) := combined_bits(2*BLOCK_SIZE-3 downto BLOCK_SIZE-2);
+
+              count          := count + 1;
+              remaining_bits := combined_bits(BLOCK_SIZE-3 downto 0) & '0';
+              n_bits         := new_length - BLOCK_SIZE;
+            else
+              remaining_bits := combined_bits(2*BLOCK_SIZE-3 downto BLOCK_SIZE-1);
+              n_bits         := new_length;
+            end if;
+            remaining_bits_prev := remaining_bits;
           end if;
         end if;
-        out_full_blocks              <= full_blocks;
-        out_full_blocks_count        <= count;
-        out_remaining                <= remaining_bits;
-        out_remaining_length_delayed <= remaining_length_regs(1);
-        out_last                     <= last_regs(1);
-        out_valid                    <= valid_regs(1);
+        out_full_blocks       <= full_blocks;
+        out_full_blocks_count <= count;
+        out_remaining         <= remaining_bits;
+        out_last              <= last_regs(1);
+        out_valid             <= valid_regs(1);
       end if;
     end if;
   end process;
