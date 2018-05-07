@@ -22,13 +22,11 @@ entity combiner_chain is
     in_lengths           : in unsigned(N_WORDS * num2bits(MAX_LENGTH) - 1 downto 0);
     in_valid             : in std_logic;
     in_last              : in std_logic;
-    in_full_blocks       : in std_logic_vector(BLOCK_SIZE*IN_MAX_BLOCKS-1 downto 0);
-    in_full_blocks_count : in integer range 0 to IN_MAX_BLOCKS;
 
     out_remaining         : out std_logic_vector(BLOCK_SIZE-2 downto 0);
     out_remaining_length  : out unsigned(len2bits(BLOCK_SIZE)-1 downto 0);
-    out_full_blocks       : out std_logic_vector(BLOCK_SIZE*(IN_MAX_BLOCKS + MAX_BLOCKS)-1 downto 0);
-    out_full_blocks_count : out integer range 0 to BLOCK_SIZE*(IN_MAX_BLOCKS + MAX_BLOCKS);
+    out_full_blocks       : out std_logic_vector(BLOCK_SIZE*MAX_BLOCKS-1 downto 0);
+    out_full_blocks_count : out integer range 0 to BLOCK_SIZE*MAX_BLOCKS;
     out_last              : out std_logic;
     out_valid             : out std_logic
     );
@@ -49,7 +47,6 @@ architecture rtl of combiner_chain is
   signal words                 : word_arr_t;
   signal valid_regs            : std_logic_vector(1 downto 0);
   signal last_regs             : std_logic_vector(1 downto 0);
-  signal last_flush_regs       : std_logic_vector(1 downto 0);
   signal remaining_length_regs : remaining_length_arr_t;
 begin
 
@@ -59,8 +56,8 @@ begin
     variable num_remaining_bits : unsigned(BLOCK_SIZE_BITS-1 downto 0);
     variable remaining_bits     : std_logic_vector(BLOCK_SIZE - 2 downto 0);
     variable temp               : std_logic_vector(BLOCK_SIZE + MAX_LENGTH-2 downto 0);
-    variable count              : integer range 0 to IN_MAX_BLOCKS + MAX_BLOCKS;
-    variable full_blocks        : std_logic_vector(BLOCK_SIZE*(IN_MAX_BLOCKS + MAX_BLOCKS)-1 downto 0);
+    variable count              : integer range 0 to MAX_BLOCKS;
+    variable full_blocks        : std_logic_vector(BLOCK_SIZE*MAX_BLOCKS-1 downto 0);
 
     variable bits                : std_logic_vector(BLOCK_SIZE-2 downto 0);
     variable n_bits              : integer range 0 to BLOCK_SIZE-1;
@@ -73,7 +70,6 @@ begin
       if (aresetn = '0') then
         words                 <= (others => (others => (others => '0')));
         valid_regs            <= (others => '0');
-        last_flush_regs       <= (others => '0');
         out_remaining_length  <= (others => '0');
         out_remaining         <= (others => '0');
         out_full_blocks_count <= 0;
@@ -96,16 +92,9 @@ begin
             num_remaining_bits := sum(BLOCK_SIZE_BITS-1 downto 0);
           end loop;
 
-          if (LAST_IN_CHAIN and in_last = '1') then
-            if (num_remaining_bits /= 0) then
-              last_flush_regs(0) <= '1';
-            else
-              last_flush_regs(0) <= '0';
-            end if;
-            num_remaining_bits := (others => '0');
+          if (not LAST_IN_CHAIN) then
+            out_remaining_length <= num_remaining_bits;
           end if;
-
-          out_remaining_length <= num_remaining_bits;
         end if;
         valid_regs(0)            <= in_valid;
         last_regs(0)             <= in_last;
@@ -122,15 +111,14 @@ begin
         end if;
         valid_regs(1)            <= valid_regs(0);
         last_regs(1)             <= last_regs(0);
-        last_flush_regs(1)       <= last_flush_regs(0);
         remaining_length_regs(1) <= remaining_length_regs(0);
 
         --------------------------------------------------------------------------------
         -- Stage 3 - Combine shifted words and extract blocks
         --------------------------------------------------------------------------------
         remaining_bits := in_remaining;
-        count          := in_full_blocks_count;
-        full_blocks    := (MAX_BLOCKS*BLOCK_SIZE-1 downto 0 => '0') & in_full_blocks;
+        count          := 0;
+        full_blocks    := (others => '0');
         if (valid_regs(1) = '1') then
           for i in 0 to N_WORDS-1 loop
             temp := (remaining_bits & (MAX_LENGTH-1 downto 0 => '0')) or words(1, i);
@@ -145,38 +133,14 @@ begin
             end loop;
             remaining_bits := temp(BLOCK_SIZE+MAX_LENGTH-2 downto MAX_LENGTH);
           end loop;
-
-          -- If last is 1 and we have some bits left over after extracting
-          -- blocks, then we put these into a new block
-          if (LAST_IN_CHAIN) then
-            if (last_regs(1) = '1' and last_flush_regs(1) = '1') then
-              full_blocks(BLOCK_SIZE*(count+1)-1 downto BLOCK_SIZE*count) := remaining_bits & '0';
-
-              count          := count + 1;
-              remaining_bits := (others => '0');
-            end if;
-
-            extended_rem  := remaining_bits & (BLOCK_SIZE-2 downto 0       => '0');
-            combined_bits := (remaining_bits_prev & (BLOCK_SIZE-2 downto 0 => '0'))
-                             or std_logic_vector(shift_right(unsigned(extended_rem), n_bits));
-            new_length := remaining_length_regs(1) + n_bits;
-
-            if (new_length >= BLOCK_SIZE) then
-              full_blocks(BLOCK_SIZE*(count+1)-1 downto BLOCK_SIZE*count) := combined_bits(2*BLOCK_SIZE-3 downto BLOCK_SIZE-2);
-
-              count          := count + 1;
-              remaining_bits := combined_bits(BLOCK_SIZE-3 downto 0) & '0';
-              n_bits         := new_length - BLOCK_SIZE;
-            else
-              remaining_bits := combined_bits(2*BLOCK_SIZE-3 downto BLOCK_SIZE-1);
-              n_bits         := new_length;
-            end if;
-            remaining_bits_prev := remaining_bits;
-          end if;
         end if;
+
         out_full_blocks       <= full_blocks;
         out_full_blocks_count <= count;
         out_remaining         <= remaining_bits;
+        if (LAST_IN_CHAIN) then
+          out_remaining_length <= to_unsigned(remaining_length_regs(1), len2bits(BLOCK_SIZE));
+        end if;
         out_last              <= last_regs(1);
         out_valid             <= valid_regs(1);
       end if;
