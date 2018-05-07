@@ -266,6 +266,7 @@ begin
     signal out_sel_ready   : std_logic;
 
     signal current_block_set_idx : integer range 0 to N_CHAINS-1;
+    signal first_block_set_idx   : integer range 0 to N_CHAINS-1;
     signal next_block_set_idx    : integer range 0 to N_CHAINS-1;
     signal current_block         : std_logic_vector(BLOCK_SIZE-1 downto 0);
     signal last_block_set        : std_logic;
@@ -372,10 +373,17 @@ begin
     --------------------------------------------------------------------------------
     output_ready <= '1' when (current_valid = '0' or current_has_blocks = '0' or is_last_block = '1') and out_sel_ready = '1' else '0';
 
-    process (current_counts, current_block_set_idx)
+    process (current_counts, current_block_set_idx, from_fifo_count)
     begin
-      last_block_set     <= '1';
-      next_block_set_idx <= 0;
+      last_block_set      <= '1';
+      next_block_set_idx  <= 0;
+      first_block_set_idx <= 0;
+      for i in N_CHAINS-1 downto 0 loop
+        if (from_fifo_count(i) > 0) then
+          first_block_set_idx <= i;
+        end if;
+      end loop;
+
       for i in 0 to N_CHAINS-1 loop
         if (current_counts(i) > 0) then
           if (i > current_block_set_idx) then
@@ -396,7 +404,7 @@ begin
         else
           if (ctrl_fifo_rden = '1') then
             counter               <= 0;
-            current_block_set_idx <= 0;
+            current_block_set_idx <= first_block_set_idx;
 
             current_blocks           <= from_fifo_blocks;
             current_counts           <= from_fifo_count;
@@ -519,7 +527,7 @@ begin
           end if;
 
           out_block_valid <= '0';
-          out_last <= '0';
+          out_last        <= '0';
 
           for i in 0 to 2 loop
             if (out_pending(i) = '1') then
