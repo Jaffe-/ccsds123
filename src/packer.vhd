@@ -500,8 +500,10 @@ begin
           leftovers  <= (others => '0');
           n_leftover <= 0;
         else
-          leftovers  <= leftovers_next;
-          n_leftover <= n_leftover_next;
+          if (out_sel_ready = '1' and current_valid = '1') then
+            leftovers  <= leftovers_next;
+            n_leftover <= n_leftover_next;
+          end if;
         end if;
       end if;
     end process;
