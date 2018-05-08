@@ -20,6 +20,8 @@ package common is
 
   function max(a : integer; b : integer) return integer;
 
+  function minimum(a : integer; b : integer) return integer;
+
   function len2bits(val : integer) return integer;
 
   function num2bits(val : integer) return integer;
@@ -85,4 +87,13 @@ package body common is
       return b;
     end if;
   end max;
+
+  function minimum(a : integer; b : integer) return integer is
+  begin
+    if (a < b) then
+      return a;
+    else
+      return b;
+    end if;
+  end minimum;
 end common;

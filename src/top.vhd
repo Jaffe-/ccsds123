@@ -330,12 +330,13 @@ begin
         );
   end generate g_pipelines;
 
-  i_packer : entity work.combiner
+  i_packer : entity work.packer
     generic map (
-      BLOCK_SIZE    => BUS_WIDTH,
-      N_WORDS       => PIPELINES,
-      MAX_LENGTH    => UMAX + D,
-      LITTLE_ENDIAN => LITTLE_ENDIAN)
+      BLOCK_SIZE        => BUS_WIDTH,
+      N_WORDS           => PIPELINES,
+      MAX_LENGTH        => UMAX + D,
+      N_WORDS_PER_CHAIN => minimum(PIPELINES, 4),
+      LITTLE_ENDIAN     => LITTLE_ENDIAN)
     port map (
       clk     => clk,
       aresetn => aresetn,
