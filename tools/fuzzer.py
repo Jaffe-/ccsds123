@@ -65,7 +65,7 @@ def run_test(fixed_parameters):
     dimensions = (NX, NY, NZ)
     gen_cube(img_filename, NX, NY, NZ)
 
-    generate_golden(parameters, dimensions, img_filename, golden_filename)
+    generate_golden(parameters, dimensions, False, img_filename, golden_filename)
 
     # Generate verilog include file
     write_sim_params(dimensions, parameters, verilog_filename)

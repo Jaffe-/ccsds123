@@ -30,6 +30,6 @@ def main():
     write_sim_params(dimensions, parameters, sim_params_filename)
 
     # Call Emporda to generate the golden reference file
-    generate_golden(parameters, dimensions, img_filename, golden_filename)
+    generate_golden(parameters, dimensions, image["signed"] == "true", img_filename, golden_filename)
 
 main()

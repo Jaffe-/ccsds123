@@ -38,9 +38,9 @@ def write_emporda_config(dimensions, order, parameters):
         for (emporda_str, val) in emporda_params.items():
             f.write("%s=%s\n" % (emporda_str, val))
 
-def emporda_callstring(image_filename, dimensions, order, datatype, endianness, outfile):
+def emporda_callstring(image_filename, dimensions, order, signed, endianness, outfile):
     return "emporda -c -i %s -o %s -ig %s %s %s %s 0 -so %s -e %s -f %s -v" % \
-             (image_filename, outfile, dimensions[2], dimensions[1], dimensions[0], datatype,
+             (image_filename, outfile, dimensions[2], dimensions[1], dimensions[0], '3' if signed else '2',
               2 if order == "BIP" else 0, 1 if endianness == "little" else 0, EMPORDA_FILENAME)
 
 def convert(image_desc, to_order, out_filename):
@@ -79,7 +79,7 @@ def write_sim_params(dimensions, parameters, filename):
 def file_size(filename):
     return os.stat(filename).st_size
 
-def generate_golden(parameters, dimensions, img_filename, golden_filename):
+def generate_golden(parameters, dimensions, signed, img_filename, golden_filename):
     HEADER_SIZE = 19
     encoded_filename = golden_filename + ".tmp"
 
@@ -87,7 +87,7 @@ def generate_golden(parameters, dimensions, img_filename, golden_filename):
     write_emporda_config(dimensions, "BIP", parameters)
 
     # Call emporda
-    callstring = emporda_callstring(img_filename, dimensions, "BIP", "3", "little", encoded_filename)
+    callstring = emporda_callstring(img_filename, dimensions, "BIP", signed, "little", encoded_filename)
     print(callstring)
     subprocess.call(callstring, shell=True)
     compressed_size = file_size(encoded_filename) - HEADER_SIZE
