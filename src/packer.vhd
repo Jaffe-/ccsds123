@@ -233,14 +233,17 @@ begin
     signal from_fifo_remaining_length : integer range 0 to BLOCK_SIZE-1;
     signal from_fifo_blocks           : full_blocks_arr_t;
     signal from_fifo_has_blocks       : std_logic;
-    signal current_last               : std_logic;
-    signal current_valid              : std_logic;
-    signal current_counts             : full_blocks_count_arr_t;
-    signal current_remaining          : std_logic_vector(BLOCK_SIZE-2 downto 0);
-    signal current_remaining_length   : integer range 0 to BLOCK_SIZE-1;
-    signal current_blocks             : full_blocks_arr_t;
-    signal current_has_blocks         : std_logic;
-    signal output_ready               : std_logic;
+
+    signal current_last             : std_logic;
+    signal current_valid            : std_logic;
+    signal current_counts           : full_blocks_count_arr_t;
+    signal current_remaining        : std_logic_vector(BLOCK_SIZE-2 downto 0);
+    signal current_remaining_length : integer range 0 to BLOCK_SIZE-1;
+
+    type current_blocks_t is array (0 to N_CHAINS-1, 0 to MAX_BLOCKS_PER_CHAIN-1) of std_logic_vector(BLOCK_SIZE-1 downto 0);
+    signal current_blocks     : current_blocks_t;
+    signal current_has_blocks : std_logic;
+    signal output_ready       : std_logic;
 
     signal out_handshake   : std_logic;
     signal out_block       : std_logic_vector(BLOCK_SIZE-1 downto 0);
@@ -262,8 +265,7 @@ begin
     signal n_leftover      : integer range 0 to BLOCK_SIZE-2;
     signal n_leftover_next : integer range 0 to BLOCK_SIZE-2;
 
-    signal out_pending_reg : std_logic_vector(2 downto 0);
-    signal out_sel_ready   : std_logic;
+    signal out_sel_ready : std_logic;
 
     signal current_block_set_idx : integer range 0 to N_CHAINS-1;
     signal first_block_set_idx   : integer range 0 to N_CHAINS-1;
@@ -344,7 +346,7 @@ begin
     begin
       from_fifo_has_blocks <= '0';
       for i in 0 to N_CHAINS-1 loop
-        if (from_fifo_count(i) > 0) then
+        if (from_fifo_count(i) /= 0) then
           from_fifo_has_blocks <= '1';
         end if;
       end loop;
@@ -379,13 +381,13 @@ begin
       next_block_set_idx  <= 0;
       first_block_set_idx <= 0;
       for i in N_CHAINS-1 downto 0 loop
-        if (from_fifo_count(i) > 0) then
+        if (from_fifo_count(i) /= 0) then
           first_block_set_idx <= i;
         end if;
       end loop;
 
       for i in 0 to N_CHAINS-1 loop
-        if (current_counts(i) > 0) then
+        if (current_counts(i) /= 0) then
           if (i > current_block_set_idx) then
             next_block_set_idx <= i;
             last_block_set     <= '0';
@@ -406,7 +408,11 @@ begin
             counter               <= 0;
             current_block_set_idx <= first_block_set_idx;
 
-            current_blocks           <= from_fifo_blocks;
+            for i in 0 to N_CHAINS-1 loop
+              for j in 0 to MAX_BLOCKS_PER_CHAIN-1 loop
+                current_blocks(i, j) <= from_fifo_blocks(i)((j+1)*BLOCK_SIZE-1 downto j*BLOCK_SIZE);
+              end loop;
+            end loop;
             current_counts           <= from_fifo_count;
             current_remaining        <= from_fifo_remaining;
             current_remaining_length <= from_fifo_remaining_length;
@@ -429,7 +435,7 @@ begin
     end process;
 
     is_last_block <= '1' when counter = current_counts(current_block_set_idx) - 1 and last_block_set = '1' else '0';
-    current_block <= current_blocks(current_block_set_idx)(BLOCK_SIZE*(counter + 1)-1 downto BLOCK_SIZE*counter);
+    current_block <= current_blocks(current_block_set_idx, counter);
 
     process (current_valid, current_block, current_remaining, current_remaining_length, current_has_blocks, is_last_block,
              leftovers, n_leftover, current_last)
@@ -512,39 +518,48 @@ begin
     out_valid     <= out_block_valid;
 
     process (clk)
-      variable out_pending      : std_logic_vector(2 downto 0);
-      variable out_pending_data : std_logic_vector(3*BLOCK_SIZE-1 downto 0);
+      variable pending : std_logic_vector(2 downto 0);
+
+      type pending_data_t is array (0 to 2) of std_logic_vector(BLOCK_SIZE-1 downto 0);
+      variable pending_data : pending_data_t;
+
+      variable pending_idx : integer range 0 to 2;
     begin
       if (rising_edge(clk)) then
         if (aresetn = '0') then
-          out_pending      := (others => '0');
-          out_pending_data := (others => '0');
-          out_block_valid  <= '0';
-          out_block        <= (others => '0');
-          out_sel_ready    <= '0';
+          pending         := (others => '0');
+          pending_data    := (others => (others => '0'));
+          out_block_valid <= '0';
+          out_block       <= (others => '0');
+          out_sel_ready   <= '0';
         else
           if (out_sel_ready = '1') then
-            out_pending      := last_valid & extra_valid & shifted_valid;
-            out_pending_data := last_block & extra_block & shifted_block;
+            pending         := last_valid & extra_valid & shifted_valid;
+            pending_data(0) := shifted_block;
+            pending_data(1) := extra_block;
+            pending_data(2) := last_block;
           end if;
 
           out_block_valid <= '0';
           out_last        <= '0';
 
-          for i in 0 to 2 loop
-            if (out_pending(i) = '1') then
-              out_pending(i)  := '0';
-              out_block_valid <= '1';
-              out_block       <= out_pending_data((i+1)*BLOCK_SIZE-1 downto i*BLOCK_SIZE);
-              if (i = 2) then
-                out_last <= '1';
-              end if;
-              exit;
-            end if;
-          end loop;
+          case pending is
+            when "010" | "110" => pending_idx := 1;
+            when "100" =>
+              pending_idx := 2;
+              out_last    <= '1';
+            when others => pending_idx := 0;
+          end case;
+
+          if (pending /= "000") then
+            out_block_valid <= '1';
+          end if;
+
+          pending(pending_idx) := '0';
+          out_block            <= pending_data(pending_idx);
 
           out_sel_ready <= '0';
-          if (out_pending = "000") then
+          if (pending = "000") then
             out_sel_ready <= '1';
           end if;
         end if;
