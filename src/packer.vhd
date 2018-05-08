@@ -56,9 +56,6 @@ architecture rtl of packer is
   signal from_chain_remaining_length  : remaining_length_arr_t;
   signal from_chain_last              : std_logic_vector(N_CHAINS-1 downto 0);
   signal from_chain_valid             : std_logic_vector(N_CHAINS-1 downto 0);
-
-  type foo_remaining_arr_t is array (0 to N_CHAINS-1) of std_logic_vector(BLOCK_SIZE-1 downto 0);
-  signal foo_remains : foo_remaining_arr_t;
 begin
   --------------------------------------------------------------------------------
   -- Combiner chains
@@ -186,8 +183,6 @@ begin
         out_full_blocks_count => to_delay_full_blocks_count,
         out_last              => from_chain_last(i),
         out_valid             => from_chain_valid(i));
-
-    foo_remains(i) <= from_chain_remaining(i) & '0';
   end generate g_chains;
 
   --------------------------------------------------------------------------------
@@ -275,10 +270,6 @@ begin
     signal current_block         : std_logic_vector(BLOCK_SIZE-1 downto 0);
     signal last_block_set        : std_logic;
   begin
-
-    process (from_fifo_count)
-    begin
-    end process;
 
     process (from_chain_full_blocks, from_chain_full_blocks_count, from_chain_remaining, from_chain_remaining_length,
              from_chain_last, from_chain_valid)
@@ -427,7 +418,7 @@ begin
             current_has_blocks       <= from_fifo_has_blocks;
             current_valid            <= '1';
           elsif (current_valid = '1' and out_sel_ready = '1') then
-            if (counter = current_counts(current_block_set_idx) - 1) then
+            if (current_counts(current_block_set_idx) = 0 or counter = current_counts(current_block_set_idx) - 1) then
               if (last_block_set = '1') then
                 current_valid <= '0';
               end if;
@@ -526,8 +517,6 @@ begin
 
     out_sel_ready <= '1' when out_pending = "000" or
                      (out_handshake = '1' and (out_pending = "001" or out_pending = "010" or out_pending = "100")) else '0';
-
---    out_block_valid <= '1' when out_pending /= "000" else '0';
 
     process (clk)
       variable pending : std_logic_vector(2 downto 0);
