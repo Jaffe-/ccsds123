@@ -58,13 +58,6 @@ begin
     variable temp               : std_logic_vector(BLOCK_SIZE + MAX_LENGTH-2 downto 0);
     variable count              : integer range 0 to MAX_BLOCKS;
     variable full_blocks        : std_logic_vector(BLOCK_SIZE*MAX_BLOCKS-1 downto 0);
-
-    variable bits                : std_logic_vector(BLOCK_SIZE-2 downto 0);
-    variable n_bits              : integer range 0 to BLOCK_SIZE-1;
-    variable combined_bits       : std_logic_vector(2*(BLOCK_SIZE-1)-1 downto 0);
-    variable extended_rem        : std_logic_vector(2*(BLOCK_SIZE-1)-1 downto 0);
-    variable new_length          : integer range 0 to BLOCK_SIZE*2-2;
-    variable remaining_bits_prev : std_logic_vector(BLOCK_SIZE - 2 downto 0);
   begin
     if (rising_edge(clk)) then
       if (aresetn = '0') then
@@ -73,9 +66,6 @@ begin
         out_remaining_length  <= (others => '0');
         out_remaining         <= (others => '0');
         out_full_blocks_count <= 0;
-        bits                  := (others => '0');
-        n_bits                := 0;
-        remaining_bits_prev   := (others => '0');
       else
         --------------------------------------------------------------------------------
         -- Stage 1 - Compute shift amounts and number of blocks
