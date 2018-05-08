@@ -207,10 +207,11 @@ begin
     --   * Counter:        COUNTER_SIZE bits
     --   * Remaining bits: BLOCK_SIZE - 1
     --   * Remaining len:  len2bits(BLOCK_SIZE)
-    --   * Last flag:      1
+    --   * Has blocks flag: 1
+    --   * Last flag:       1
     constant BLOCK_FIFO_SIZE  : integer := MAX_BLOCKS * BLOCK_SIZE;
     constant BLOCK_FIFO_DEPTH : integer := 128;
-    constant CTRL_FIFO_SIZE   : integer := N_CHAINS * COUNTER_SIZE + BLOCK_SIZE-1 + len2bits(BLOCK_SIZE) + 1;
+    constant CTRL_FIFO_SIZE   : integer := N_CHAINS * COUNTER_SIZE + BLOCK_SIZE-1 + len2bits(BLOCK_SIZE) + 1 + 1;
     constant CTRL_FIFO_DEPTH  : integer := 128;
 
     signal block_fifo_rden           : std_logic;
@@ -266,6 +267,7 @@ begin
     signal n_leftover_next : integer range 0 to BLOCK_SIZE-2;
 
     signal out_sel_ready : std_logic;
+    signal out_pending   : std_logic_vector(2 downto 0);
 
     signal current_block_set_idx : integer range 0 to N_CHAINS-1;
     signal first_block_set_idx   : integer range 0 to N_CHAINS-1;
@@ -274,15 +276,28 @@ begin
     signal last_block_set        : std_logic;
   begin
 
+    process (from_fifo_count)
+    begin
+    end process;
+
     process (from_chain_full_blocks, from_chain_full_blocks_count, from_chain_remaining, from_chain_remaining_length,
              from_chain_last, from_chain_valid)
-      variable idx : integer;
+      variable idx        : integer;
+      variable has_blocks : std_logic;
     begin
       ctrl_fifo_wren  <= '0';
       block_fifo_wren <= '0';
+
+      has_blocks := '0';
+      for i in 0 to N_CHAINS-1 loop
+        if (from_chain_full_blocks_count(i) /= 0) then
+          has_blocks := '1';
+        end if;
+      end loop;
+
       if (from_chain_valid(N_CHAINS-1) = '1') then
         ctrl_fifo_wren <= '1';
-        if (from_chain_full_blocks_count(N_CHAINS-1) /= 0) then
+        if (has_blocks = '1') then
           block_fifo_wren <= '1';
         end if;
       end if;
@@ -300,7 +315,8 @@ begin
       ctrl_fifo_in(idx + len2bits(BLOCK_SIZE)-1 downto idx) <= std_logic_vector(from_chain_remaining_length(N_CHAINS-1));
       idx                                                   := idx + len2bits(BLOCK_SIZE);
 
-      ctrl_fifo_in(idx) <= from_chain_last(N_CHAINS-1);
+      ctrl_fifo_in(idx)   <= has_blocks;
+      ctrl_fifo_in(idx+1) <= from_chain_last(N_CHAINS-1);
 
     end process;
 
@@ -342,16 +358,6 @@ begin
     block_fifo_rden <= output_ready and not ctrl_fifo_empty and not block_fifo_empty and from_fifo_has_blocks;
     over_threshold  <= block_fifo_over_threshold or ctrl_fifo_over_threshold;
 
-    process (from_fifo_count)
-    begin
-      from_fifo_has_blocks <= '0';
-      for i in 0 to N_CHAINS-1 loop
-        if (from_fifo_count(i) /= 0) then
-          from_fifo_has_blocks <= '1';
-        end if;
-      end loop;
-    end process;
-
     process (block_fifo_out, ctrl_fifo_out)
       variable idx : integer;
     begin
@@ -367,7 +373,8 @@ begin
       from_fifo_remaining_length <= to_integer(unsigned(ctrl_fifo_out(idx + len2bits(BLOCK_SIZE) - 1 downto idx)));
       idx                        := idx + len2bits(BLOCK_SIZE);
 
-      from_fifo_last <= ctrl_fifo_out(idx);
+      from_fifo_has_blocks <= ctrl_fifo_out(idx);
+      from_fifo_last       <= ctrl_fifo_out(idx+1);
     end process;
 
     --------------------------------------------------------------------------------
@@ -517,6 +524,11 @@ begin
     out_handshake <= out_block_valid and out_ready;
     out_valid     <= out_block_valid;
 
+    out_sel_ready <= '1' when out_pending = "000" or
+                     (out_handshake = '1' and (out_pending = "001" or out_pending = "010" or out_pending = "100")) else '0';
+
+--    out_block_valid <= '1' when out_pending /= "000" else '0';
+
     process (clk)
       variable pending : std_logic_vector(2 downto 0);
 
@@ -527,21 +539,23 @@ begin
     begin
       if (rising_edge(clk)) then
         if (aresetn = '0') then
-          pending         := (others => '0');
           pending_data    := (others => (others => '0'));
-          out_block_valid <= '0';
           out_block       <= (others => '0');
-          out_sel_ready   <= '0';
+          out_pending     <= (others => '0');
+          out_block_valid <= '0';
         else
+          pending := out_pending;
+
           if (out_sel_ready = '1') then
             pending         := last_valid & extra_valid & shifted_valid;
             pending_data(0) := shifted_block;
             pending_data(1) := extra_block;
             pending_data(2) := last_block;
+          elsif (out_handshake = '1') then
+            pending(pending_idx) := '0';
           end if;
 
-          out_block_valid <= '0';
-          out_last        <= '0';
+          out_last <= '0';
 
           case pending is
             when "010" | "110" => pending_idx := 1;
@@ -551,17 +565,14 @@ begin
             when others => pending_idx := 0;
           end case;
 
+          out_block <= pending_data(pending_idx);
+
+          out_pending     <= pending;
+          out_block_valid <= '0';
           if (pending /= "000") then
             out_block_valid <= '1';
           end if;
 
-          pending(pending_idx) := '0';
-          out_block            <= pending_data(pending_idx);
-
-          out_sel_ready <= '0';
-          if (pending = "000") then
-            out_sel_ready <= '1';
-          end if;
         end if;
       end if;
     end process;
