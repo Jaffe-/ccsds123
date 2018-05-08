@@ -8,6 +8,8 @@ module top_tb;
 
    parameter OUT_BUBBLES = 1;
 
+   parameter ISUNSIGNED = 0;
+
    reg clk, aresetn;
    reg [PIPELINES*D-1:0] in_tdata;
    reg         in_tvalid;
@@ -20,6 +22,7 @@ module top_tb;
 
    ccsds123_top
      #(.PIPELINES(PIPELINES),
+       .ISUNSIGNED(ISUNSIGNED),
        .D(D),
        .NX(NX),
        .NY(NY),
@@ -57,7 +60,7 @@ module top_tb;
    integer         stalled_cycles, total_cycles;
 
    initial begin
-      clk <= 1'b0;
+      clk <= 1'b1;
       aresetn <= 1'b0;
       in_tdata <= 8'b0;
       in_tvalid <= 1'b0;

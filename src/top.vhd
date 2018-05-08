@@ -24,7 +24,8 @@ entity ccsds123_top is
     BUS_WIDTH     : integer := 64;
     NX            : integer := 500;
     NY            : integer := 500;
-    NZ            : integer := 10
+    NZ            : integer := 10;
+    ISUNSIGNED    : boolean := true
     );
   port (
     clk     : in std_logic;
@@ -94,14 +95,16 @@ architecture rtl of ccsds123_top is
   --  Weight storage:          1
   constant C_INCL_PIPE_CTRL : boolean := CZ > 0 and NZ/PIPELINES < DELAY_LOCAL_DIFF + delay_dot(CZ) + DELAY_PREDICTOR + DELAY_WEIGHT_UPDATE + 1;
 
+  signal in_samples : std_logic_vector(D*PIPELINES-1 downto 0);
+
   signal from_sample_store_ne : std_logic_vector(PIPELINES*D-1 downto 0);
   signal from_sample_store_nw : std_logic_vector(PIPELINES*D-1 downto 0);
   signal from_sample_store_n  : std_logic_vector(PIPELINES*D-1 downto 0);
   signal from_sample_store_w  : std_logic_vector(PIPELINES*D-1 downto 0);
 
 begin
-  in_handshake <= s_axis_tvalid and in_ready;
-  s_axis_tready    <= in_ready;
+  in_handshake  <= s_axis_tvalid and in_ready;
+  s_axis_tready <= in_ready;
 
   g_pipe_ctrl : if (C_INCL_PIPE_CTRL) generate
     signal count : integer range 0 to NZ;
@@ -148,6 +151,23 @@ begin
     end if;
   end process;
 
+  -- Convert unsigned to signed if necessary
+  g_signed_convert : if (ISUNSIGNED) generate
+    process (s_axis_tdata)
+      variable sample : std_logic_vector(D-1 downto 0);
+    begin
+      for i in 0 to PIPELINES-1 loop
+        sample                           := s_axis_tdata((i+1)*D-1 downto i*D);
+        sample(D-1)                      := not sample(D-1);
+        in_samples((i+1)*D-1 downto i*D) <= sample;
+      end loop;
+    end process;
+  end generate g_signed_convert;
+
+  g_no_signed_convert : if (not ISUNSIGNED) generate
+    in_samples <= s_axis_tdata;
+  end generate g_no_signed_convert;
+
   i_sample_store : entity work.sample_store
     generic map (
       PIPELINES => PIPELINES,
@@ -158,7 +178,7 @@ begin
       clk     => clk,
       aresetn => aresetn,
 
-      in_s     => s_axis_tdata,
+      in_s     => in_samples,
       in_valid => in_handshake,
 
       out_s_ne => from_sample_store_ne,
@@ -220,7 +240,7 @@ begin
       if (aresetn = '0') then
         prev_s_reg <= (others => '0');
       elsif (in_handshake = '1') then
-        prev_s_reg <= s_axis_tdata(PIPELINES*D-1 downto (PIPELINES-1)*D);
+        prev_s_reg <= in_samples(PIPELINES*D-1 downto (PIPELINES-1)*D);
       end if;
     end if;
   end process;
@@ -234,7 +254,7 @@ begin
     -- index 0, so reorder it:
     central_diffs_vec((PIPELINES-i)*(D+3)-1 downto (PIPELINES-i-1)*(D+3)) <= central_diff(i);
 
-    process (central_diff, from_local_diff_store, prev_s_reg, s_axis_tdata)
+    process (central_diff, from_local_diff_store, prev_s_reg, in_samples)
     begin
       for j in 0 to P-1 loop
         -- If j < i then we're going to take central differences from the other
@@ -249,7 +269,7 @@ begin
       if (i = 0) then
         prev_s <= prev_s_reg;
       else
-        prev_s <= s_axis_tdata(i*D-1 downto (i-1)*D);
+        prev_s <= in_samples(i*D-1 downto (i-1)*D);
       end if;
     end process;
 
@@ -280,7 +300,7 @@ begin
         clk     => clk,
         aresetn => aresetn,
 
-        in_s           => s_axis_tdata((i+1)*D-1 downto i*D),
+        in_s           => in_samples((i+1)*D-1 downto i*D),
         in_s_ne        => from_sample_store_ne((i+1)*D-1 downto i*D),
         in_s_nw        => from_sample_store_nw((i+1)*D-1 downto i*D),
         in_s_n         => from_sample_store_n((i+1)*D-1 downto i*D),
