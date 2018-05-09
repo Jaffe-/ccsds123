@@ -269,45 +269,143 @@ begin
     signal next_block_set_idx    : integer range 0 to N_CHAINS-1;
     signal current_block         : std_logic_vector(BLOCK_SIZE-1 downto 0);
     signal last_block_set        : std_logic;
+
+    signal from_delay_valid             : std_logic;
+    signal from_delay_last              : std_logic;
+    signal from_delay_full_blocks       : full_blocks_arr_t;
+    signal from_delay_full_blocks_count : full_blocks_count_arr_t;
+    signal from_delay_remaining         : std_logic_vector(BLOCK_SIZE-2 downto 0);
+    signal from_delay_remaining_length  : unsigned(len2bits(BLOCK_SIZE)-1 downto 0);
+
+    signal collected_remains      : std_logic_vector(BLOCK_SIZE-2 downto 0);
+    signal collected_length       : integer range 0 to BLOCK_SIZE-1;
+    signal collected_remains_next : std_logic_vector(BLOCK_SIZE-2 downto 0);
+    signal collected_length_next  : integer range 0 to BLOCK_SIZE-1;
   begin
 
-    process (from_chain_full_blocks, from_chain_full_blocks_count, from_chain_remaining, from_chain_remaining_length,
-             from_chain_last, from_chain_valid)
-      variable idx        : integer;
-      variable has_blocks : std_logic;
+    -- Collect remaining bits when no blocks are output
+    process (clk)
+    begin
+      if (rising_edge(clk)) then
+        if (aresetn = '0') then
+          collected_remains <= (others => '0');
+          collected_length  <= 0;
+          from_delay_valid  <= '0';
+        else
+          if (from_chain_valid(N_CHAINS-1) = '1') then
+            if (from_delay_valid = '1') then
+              collected_remains <= collected_remains_next;
+              collected_length  <= collected_length_next;
+            end if;
+
+            from_delay_valid             <= from_chain_valid(N_CHAINS-1);
+            from_delay_last              <= from_chain_last(N_CHAINS-1);
+            from_delay_full_blocks       <= from_chain_full_blocks;
+            from_delay_full_blocks_count <= from_chain_full_blocks_count;
+            from_delay_remaining         <= from_chain_remaining(N_CHAINS-1);
+            from_delay_remaining_length  <= from_chain_remaining_length(N_CHAINS-1);
+          elsif (from_delay_last = '1') then
+            from_delay_valid <= '0';
+          end if;
+        end if;
+      end if;
+    end process;
+
+    process (from_delay_full_blocks, from_delay_full_blocks_count, from_chain_valid, from_chain_full_blocks_count, from_delay_remaining,
+             from_delay_remaining_length, from_delay_last, from_delay_valid, collected_remains, collected_length)
+      variable idx             : integer;
+      variable has_blocks      : std_logic;
+      variable next_has_blocks : std_logic;
+
+      variable extended_remains : std_logic_vector(2*BLOCK_SIZE-3 downto 0);
+      variable combined_remains : std_logic_vector(2*BLOCK_SIZE-3 downto 0);
+      variable combined_length  : integer range 0 to 2*BLOCK_SIZE-2;
+
+      variable to_fifo_blocks         : full_blocks_arr_t;
+      variable to_fifo_blocks_count   : full_blocks_count_arr_t;
+      variable to_fifo_remains        : std_logic_vector(BLOCK_SIZE-2 downto 0);
+      variable to_fifo_remains_length : unsigned(len2bits(BLOCK_SIZE)-1 downto 0);
+
+      variable collected_remains_temp : std_logic_vector(BLOCK_SIZE-2 downto 0);
+      variable collected_length_temp  : integer range 0 to BLOCK_SIZE-1;
+
     begin
       ctrl_fifo_wren  <= '0';
       block_fifo_wren <= '0';
 
       has_blocks := '0';
       for i in 0 to N_CHAINS-1 loop
-        if (from_chain_full_blocks_count(i) /= 0) then
+        if (from_delay_full_blocks_count(i) /= 0) then
           has_blocks := '1';
         end if;
       end loop;
 
-      if (from_chain_valid(N_CHAINS-1) = '1') then
+      next_has_blocks := '0';
+      for i in 0 to N_CHAINS-1 loop
+        if (from_chain_valid(N_CHAINS-1) = '1' and from_chain_full_blocks_count(i) /= 0) then
+          next_has_blocks := '1';
+        end if;
+      end loop;
+
+      to_fifo_blocks       := from_delay_full_blocks;
+      to_fifo_blocks_count := from_delay_full_blocks_count;
+
+      extended_remains := from_delay_remaining & (BLOCK_SIZE-2 downto 0 => '0');
+      combined_remains := (collected_remains & (BLOCK_SIZE-2 downto 0   => '0'))
+                          or std_logic_vector(shift_right(unsigned(extended_remains), collected_length));
+      combined_length := collected_length + to_integer(from_delay_remaining_length);
+      if (combined_length >= BLOCK_SIZE) then
+        to_fifo_blocks(0)(BLOCK_SIZE-1 downto 0) := combined_remains(2*BLOCK_SIZE-3 downto BLOCK_SIZE-2);
+        to_fifo_blocks_count(0)                  := 1;
+        collected_remains_temp                   := combined_remains(BLOCK_SIZE-3 downto 0) & '0';
+        collected_length_temp                    := combined_length - BLOCK_SIZE;
+        has_blocks                               := '1';
+      else
+        collected_remains_temp := combined_remains(2*BLOCK_SIZE-3 downto BLOCK_SIZE-1);
+        collected_length_temp  := combined_length;
+      end if;
+
+      if (next_has_blocks = '1' or from_delay_last = '1') then
+        to_fifo_remains        := collected_remains_temp;
+        to_fifo_remains_length := to_unsigned(collected_length_temp, len2bits(BLOCK_SIZE));
+        collected_remains_next <= (others => '0');
+        collected_length_next  <= 0;
+      else
+        to_fifo_remains        := (others => '0');
+        to_fifo_remains_length := to_unsigned(0, len2bits(BLOCK_SIZE));
+        collected_remains_next <= collected_remains_temp;
+        collected_length_next  <= collected_length_temp;
+      end if;
+
+      if (from_chain_valid(N_CHAINS-1) = '1' and from_delay_valid = '1') then
+        if (has_blocks = '1') then
+          ctrl_fifo_wren  <= '1';
+          block_fifo_wren <= '1';
+        elsif (next_has_blocks = '1') then
+          ctrl_fifo_wren <= '1';
+        end if;
+      elsif (from_delay_valid = '1' and from_delay_last = '1') then
         ctrl_fifo_wren <= '1';
         if (has_blocks = '1') then
           block_fifo_wren <= '1';
         end if;
       end if;
 
-      for i in from_chain_full_blocks'range loop
-        block_fifo_in((i+1)*MAX_BLOCKS_PER_CHAIN*BLOCK_SIZE-1 downto i*MAX_BLOCKS_PER_CHAIN*BLOCK_SIZE) <= from_chain_full_blocks(i);
+      for i in from_delay_full_blocks'range loop
+        block_fifo_in((i+1)*MAX_BLOCKS_PER_CHAIN*BLOCK_SIZE-1 downto i*MAX_BLOCKS_PER_CHAIN*BLOCK_SIZE) <= to_fifo_blocks(i);
 
-        ctrl_fifo_in((i+1)*COUNTER_SIZE-1 downto i*COUNTER_SIZE) <= std_logic_vector(to_unsigned(from_chain_full_blocks_count(i), COUNTER_SIZE));
+        ctrl_fifo_in((i+1)*COUNTER_SIZE-1 downto i*COUNTER_SIZE) <= std_logic_vector(to_unsigned(to_fifo_blocks_count(i), COUNTER_SIZE));
       end loop;
       idx := N_CHAINS*COUNTER_SIZE;
 
-      ctrl_fifo_in(idx + BLOCK_SIZE-2 downto idx) <= from_chain_remaining(N_CHAINS-1);
+      ctrl_fifo_in(idx + BLOCK_SIZE-2 downto idx) <= to_fifo_remains;
       idx                                         := idx + BLOCK_SIZE - 1;
 
-      ctrl_fifo_in(idx + len2bits(BLOCK_SIZE)-1 downto idx) <= std_logic_vector(from_chain_remaining_length(N_CHAINS-1));
+      ctrl_fifo_in(idx + len2bits(BLOCK_SIZE)-1 downto idx) <= std_logic_vector(to_fifo_remains_length);
       idx                                                   := idx + len2bits(BLOCK_SIZE);
 
       ctrl_fifo_in(idx)   <= has_blocks;
-      ctrl_fifo_in(idx+1) <= from_chain_last(N_CHAINS-1);
+      ctrl_fifo_in(idx+1) <= from_delay_last;
 
     end process;
 
