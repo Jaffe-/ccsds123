@@ -236,8 +236,8 @@ begin
     signal current_remaining        : std_logic_vector(BLOCK_SIZE-2 downto 0);
     signal current_remaining_length : integer range 0 to BLOCK_SIZE-1;
 
-    type current_blocks_t is array (0 to N_CHAINS-1, 0 to MAX_BLOCKS_PER_CHAIN-1) of std_logic_vector(BLOCK_SIZE-1 downto 0);
-    signal current_blocks     : current_blocks_t;
+    signal current_blocks     : full_blocks_arr_t;
+    signal current_block_set  : std_logic_vector(MAX_BLOCKS_PER_CHAIN*BLOCK_SIZE-1 downto 0);
     signal current_has_blocks : std_logic;
     signal output_ready       : std_logic;
 
@@ -403,20 +403,17 @@ begin
           current_valid         <= '0';
         else
           if (ctrl_fifo_rden = '1') then
-            counter               <= 0;
-            current_block_set_idx <= first_block_set_idx;
-
-            for i in 0 to N_CHAINS-1 loop
-              for j in 0 to MAX_BLOCKS_PER_CHAIN-1 loop
-                current_blocks(i, j) <= from_fifo_blocks(i)((j+1)*BLOCK_SIZE-1 downto j*BLOCK_SIZE);
-              end loop;
-            end loop;
+            counter                  <= 0;
             current_counts           <= from_fifo_count;
             current_remaining        <= from_fifo_remaining;
             current_remaining_length <= from_fifo_remaining_length;
             current_last             <= from_fifo_last;
             current_has_blocks       <= from_fifo_has_blocks;
             current_valid            <= '1';
+            current_blocks           <= from_fifo_blocks;
+
+            current_block_set_idx <= first_block_set_idx;
+            current_block_set     <= from_fifo_blocks(first_block_set_idx);
           elsif (current_valid = '1' and out_sel_ready = '1') then
             if (current_counts(current_block_set_idx) = 0 or counter = current_counts(current_block_set_idx) - 1) then
               if (last_block_set = '1') then
@@ -424,8 +421,12 @@ begin
               end if;
               counter               <= 0;
               current_block_set_idx <= next_block_set_idx;
+              current_block_set     <= current_blocks(next_block_set_idx);
             else
               counter <= counter + 1;
+              for j in 0 to MAX_BLOCKS_PER_CHAIN-2 loop
+                current_block_set((j+1)*BLOCK_SIZE-1 downto j*BLOCK_SIZE) <= current_block_set((j+2)*BLOCK_SIZE-1 downto (j+1)*BLOCK_SIZE);
+              end loop;
             end if;
           end if;
         end if;
@@ -433,7 +434,7 @@ begin
     end process;
 
     is_last_block <= '1' when counter = current_counts(current_block_set_idx) - 1 and last_block_set = '1' else '0';
-    current_block <= current_blocks(current_block_set_idx, counter);
+    current_block <= current_block_set(BLOCK_SIZE-1 downto 0);
 
     process (current_valid, current_block, current_remaining, current_remaining_length, current_has_blocks, is_last_block,
              leftovers, n_leftover, current_last)
