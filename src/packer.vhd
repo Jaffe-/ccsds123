@@ -14,7 +14,7 @@ use xpm.vcomponents.all;
 entity packer is
   generic (
     BLOCK_SIZE        : integer := 64;
-    N_WORDS           : integer := 16;
+    N_WORDS           : integer := 4;
     N_WORDS_PER_CHAIN : integer := 2;
     MAX_LENGTH        : integer := 48;
     LITTLE_ENDIAN     : boolean := false
@@ -43,9 +43,25 @@ architecture rtl of packer is
   -- The maximum number of blocks from the largest chains
   constant MAX_BLOCKS_PER_CHAIN : integer := integer(ceil(real(N_WORDS_PER_CHAIN * MAX_LENGTH)/real(BLOCK_SIZE)));
 
-  constant MAX_BLOCKS          : integer := MAX_BLOCKS_PER_CHAIN * N_CHAINS;
-  constant MAX_BLOCKS_PER_WORD : integer := (BLOCK_SIZE + MAX_LENGTH) / BLOCK_SIZE;
-  constant LENGTH_BITS         : integer := num2bits(MAX_LENGTH);
+  function num_words(i : integer) return integer is
+  begin
+    if (N_WORDS mod N_WORDS_PER_CHAIN /= 0 and i = N_CHAINS-1) then
+      return N_WORDS mod N_WORDS_PER_CHAIN;
+    else
+      return N_WORDS_PER_CHAIN;
+    end if;
+  end num_words;
+
+  function blocks_from_chain(i : integer) return integer is
+  begin
+    if (i = N_CHAINS-1) then
+      return MAX_BLOCKS_PER_CHAIN + 1;
+    else
+      return MAX_BLOCKS_PER_CHAIN;
+    end if;
+  end blocks_from_chain;
+
+  constant LENGTH_BITS : integer := num2bits(MAX_LENGTH);
 
   type block_set_arr_t is array (0 to N_CHAINS-1) of std_logic_vector(MAX_BLOCKS_PER_CHAIN*BLOCK_SIZE-1 downto 0);
   type blocks_count_arr_t is array (0 to N_CHAINS-1) of integer range 0 to MAX_BLOCKS_PER_CHAIN;
@@ -56,9 +72,9 @@ architecture rtl of packer is
 
   signal from_calc_remaining_length : remaining_length_arr_t;
 
-  signal from_combine_blocks       : block_set_arr_t;
-  signal from_combine_remaining    : remaining_arr_t;
-  signal from_combine_has_blocks   : std_logic_vector(N_CHAINS-1 downto 0);
+  signal from_combine_blocks     : block_set_arr_t;
+  signal from_combine_remaining  : remaining_arr_t;
+  signal from_combine_has_blocks : std_logic_vector(N_CHAINS-1 downto 0);
 
   type word_delay_arr_t is array (0 to N_CHAINS) of std_logic_vector(N_WORDS*MAX_LENGTH-1 downto 0);
   signal word_regs  : word_delay_arr_t;
@@ -69,10 +85,11 @@ architecture rtl of packer is
   signal prev_remaining_next   : std_logic_vector(BLOCK_SIZE-2 downto 0);
   signal prev_remaining_length : integer range 0 to BLOCK_SIZE-1;
 
-  signal to_fifo_blocks       : block_set_arr_t;
-  signal to_fifo_blocks_count : blocks_count_arr_t;
-  signal to_fifo_valid        : std_logic;
-  signal to_fifo_last         : std_logic;
+  signal to_fifo_blocks         : block_set_arr_t;
+  signal to_fifo_blocks_count   : blocks_count_arr_t;
+  signal to_fifo_valid          : std_logic;
+  signal to_fifo_last           : std_logic;
+  signal to_fifo_last_remaining : std_logic_vector(BLOCK_SIZE-2 downto 0);
 begin
   process (clk)
   begin
@@ -102,41 +119,34 @@ begin
     constant IN_DELAY_CYCLES  : integer := i;
     constant OUT_DELAY_CYCLES : integer := N_CHAINS - 1 - i;
 
-    function num_words return integer is
-    begin
-      if (N_WORDS mod N_WORDS_PER_CHAIN /= 0 and i = N_CHAINS-1) then
-        return N_WORDS mod N_WORDS_PER_CHAIN;
-      else
-        return N_WORDS_PER_CHAIN;
-      end if;
-    end num_words;
-
-    type shift_arr_t is array (0 to num_words-1) of integer range 0 to BLOCK_SIZE-1;
-    type extract_arr_t is array (0 to num_words-1) of integer range 0 to MAX_BLOCKS_PER_WORD;
+    type shift_arr_t is array (0 to num_words(i)-1) of integer range 0 to BLOCK_SIZE-1;
+    type extract_arr_t is array (0 to num_words(i)-1) of integer range 0 to blocks_from_chain(i);
 
     signal to_delay_shift   : shift_arr_t;
-    signal to_delay_lengths : unsigned(num_words*num2bits(MAX_LENGTH)-1 downto 0);
+    signal to_delay_lengths : unsigned(num_words(i)*num2bits(MAX_LENGTH)-1 downto 0);
 
-    signal to_calc_lengths : unsigned(num_words*num2bits(MAX_LENGTH)-1 downto 0);
+    signal to_calc_lengths : unsigned(num_words(i)*num2bits(MAX_LENGTH)-1 downto 0);
 
-    type shifted_word_arr_t is array (0 to num_words-1) of std_logic_vector(BLOCK_SIZE + MAX_LENGTH - 2 downto 0);
+    type shifted_word_arr_t is array (0 to num_words(i)-1) of std_logic_vector(BLOCK_SIZE + MAX_LENGTH - 2 downto 0);
     signal shifted_words : shifted_word_arr_t;
 
     signal from_calc_shift           : shift_arr_t;
-    signal from_calc_lengths         : unsigned(num_words*num2bits(MAX_LENGTH)-1 downto 0);
+    signal from_calc_lengths         : unsigned(num_words(i)*num2bits(MAX_LENGTH)-1 downto 0);
     signal from_adjust_shift         : shift_arr_t;
     signal from_adjust_extract_count : extract_arr_t;
     signal extract_count_reg         : extract_arr_t;
 
+    constant FOO_NUM   : integer := blocks_from_chain(i);
+    constant FOO_WORDS : integer := num_words(i);
   begin
     g_delay_inputs : if (IN_DELAY_CYCLES > 0) generate
-      type delayed_length_arr_t is array (0 to IN_DELAY_CYCLES) of unsigned(num_words*num2bits(MAX_LENGTH)-1 downto 0);
+      type delayed_length_arr_t is array (0 to IN_DELAY_CYCLES) of unsigned(num_words(i)*num2bits(MAX_LENGTH)-1 downto 0);
       signal delayed_lengths : delayed_length_arr_t;
     begin
       process (clk)
       begin
         if (rising_edge(clk)) then
-          delayed_lengths(0) <= in_lengths((i*N_WORDS_PER_CHAIN + num_words)*num2bits(MAX_LENGTH)-1 downto i*N_WORDS_PER_CHAIN*num2bits(MAX_LENGTH));
+          delayed_lengths(0) <= in_lengths((i*N_WORDS_PER_CHAIN + num_words(i))*num2bits(MAX_LENGTH)-1 downto i*N_WORDS_PER_CHAIN*num2bits(MAX_LENGTH));
           for j in 1 to IN_DELAY_CYCLES-1 loop
             delayed_lengths(j) <= delayed_lengths(j-1);
           end loop;
@@ -146,7 +156,7 @@ begin
     end generate g_delay_inputs;
 
     g_no_input_delay : if (IN_DELAY_CYCLES = 0) generate
-      to_calc_lengths <= in_lengths((i*N_WORDS_PER_CHAIN + num_words)*num2bits(MAX_LENGTH)-1 downto i*N_WORDS_PER_CHAIN*num2bits(MAX_LENGTH));
+      to_calc_lengths <= in_lengths((i*N_WORDS_PER_CHAIN + num_words(i))*num2bits(MAX_LENGTH)-1 downto i*N_WORDS_PER_CHAIN*num2bits(MAX_LENGTH));
     end generate g_no_input_delay;
 
     process (clk)
@@ -162,7 +172,7 @@ begin
           num_remaining_bits := to_unsigned(from_calc_remaining_length(i-1), BLOCK_SIZE_BITS);
         end if;
 
-        for j in 0 to num_words-1 loop
+        for j in 0 to num_words(i)-1 loop
           -- Compute bits left after this word is shifted in
           sum                := resize(num_remaining_bits, SUM_SIZE) + to_calc_lengths((j+1)*LENGTH_BITS-1 downto j*LENGTH_BITS);
           to_delay_shift(j)  <= to_integer(num_remaining_bits);
@@ -176,7 +186,7 @@ begin
     g_delay_outputs : if (OUT_DELAY_CYCLES > 0) generate
       type shift_delay_arr_t is array (0 to OUT_DELAY_CYCLES) of shift_arr_t;
       type extract_delay_arr_t is array (0 to OUT_DELAY_CYCLES) of extract_arr_t;
-      type length_arr_t is array (0 to OUT_DELAY_CYCLES) of unsigned(num_words*num2bits(MAX_LENGTH)-1 downto 0);
+      type length_arr_t is array (0 to OUT_DELAY_CYCLES) of unsigned(num_words(i)*num2bits(MAX_LENGTH)-1 downto 0);
 
       signal delayed_shift   : shift_delay_arr_t;
       signal delayed_lengths : length_arr_t;
@@ -205,6 +215,8 @@ begin
     -- Combiner chain
     --------------------------------------------------------------------------------
     process (clk)
+      constant MAX_BLOCKS_PER_WORD : integer := (BLOCK_SIZE + MAX_LENGTH) / BLOCK_SIZE;
+
       variable sum            : integer range 0 to 2*BLOCK_SIZE-1;
       variable remaining_bits : std_logic_vector(BLOCK_SIZE - 2 downto 0);
       variable extended_word  : std_logic_vector(BLOCK_SIZE + MAX_LENGTH-2 downto 0);
@@ -217,7 +229,7 @@ begin
         --------------------------------------------------------------------------------
         -- Stage 1 - Perform adjustment of shifts and extract counts
         --------------------------------------------------------------------------------
-        for j in 0 to num_words-1 loop
+        for j in 0 to num_words(i)-1 loop
           sum := from_calc_shift(j) + prev_remaining_length;
           if (sum >= BLOCK_SIZE) then
             sum := sum - BLOCK_SIZE;
@@ -231,7 +243,7 @@ begin
         -- Stage 2 - Shift each incoming word
         --------------------------------------------------------------------------------
         extract_count_reg <= from_adjust_extract_count;
-        for j in 0 to num_words-1 loop
+        for j in 0 to num_words(i)-1 loop
           extended_word := from_delay_words((i*N_WORDS_PER_CHAIN + j + 1)*MAX_LENGTH-1 downto (i*N_WORDS_PER_CHAIN + j)*MAX_LENGTH)
                                & (BLOCK_SIZE-2 downto 0 => '0');
           shifted_words(j) <= std_logic_vector(shift_right(unsigned(extended_word), from_adjust_shift(j)));
@@ -244,7 +256,7 @@ begin
         count          := 0;
         blocks         := (others => '0');
         has_blocks     := '0';
-        for j in 0 to num_words-1 loop
+        for j in 0 to num_words(i)-1 loop
           temp := (remaining_bits & (MAX_LENGTH-1 downto 0 => '0')) or shifted_words(j);
 
           for blk in 0 to MAX_BLOCKS_PER_WORD-1 loop
@@ -258,14 +270,6 @@ begin
           end loop;
           remaining_bits := temp(BLOCK_SIZE+MAX_LENGTH-2 downto MAX_LENGTH);
         end loop;
-
-        if (i = N_CHAINS-1 and last_regs(N_CHAINS+1) = '1') then
-          blocks(BLOCK_SIZE*(count+1)-1 downto BLOCK_SIZE*count) := remaining_bits(BLOCK_SIZE-2 downto 0) & '0';
-
-          count          := count + 1;
-          has_blocks     := '1';
-          remaining_bits := (others => '0');
-        end if;
 
         from_combine_blocks(i)     <= blocks;
         from_combine_remaining(i)  <= remaining_bits;
@@ -295,7 +299,8 @@ begin
         remaining := remaining or from_combine_remaining(i);
       end if;
     end loop;
-    prev_remaining_next <= remaining;
+    prev_remaining_next    <= remaining;
+    to_fifo_last_remaining <= remaining;
   end process;
 
   -- Store bits from previous reg
@@ -308,15 +313,24 @@ begin
         prev_remaining_length <= 0;
       else
         if (valid_regs(N_CHAINS-1) = '1') then
-          sum := prev_remaining_length + from_calc_remaining_length(N_CHAINS-1);
-          if (sum >= BLOCK_SIZE) then
-            prev_remaining_length <= sum - BLOCK_SIZE;
+          if (last_regs(N_CHAINS-1) = '1') then
+            prev_remaining_length <= 0;
           else
-            prev_remaining_length <= sum;
+            sum := prev_remaining_length + from_calc_remaining_length(N_CHAINS-1);
+            if (sum >= BLOCK_SIZE) then
+              prev_remaining_length <= sum - BLOCK_SIZE;
+            else
+              prev_remaining_length <= sum;
+            end if;
           end if;
         end if;
+
         if (to_fifo_valid = '1') then
-          prev_remaining <= prev_remaining_next;
+          if (to_fifo_last = '1') then
+            prev_remaining <= (others => '0');
+          else
+            prev_remaining <= prev_remaining_next;
+          end if;
         end if;
       end if;
     end if;
@@ -329,7 +343,7 @@ begin
     constant COUNTER_SIZE : integer := num2bits(MAX_BLOCKS_PER_CHAIN);
 
     constant FIFO_MARGIN : integer := 30;
-    constant FIFO_SIZE   : integer := N_CHAINS * (MAX_BLOCKS_PER_CHAIN * BLOCK_SIZE + COUNTER_SIZE + 1) + 1;
+    constant FIFO_SIZE   : integer := BLOCK_SIZE-1 + N_CHAINS * (MAX_BLOCKS_PER_CHAIN*BLOCK_SIZE + COUNTER_SIZE + 1) + 1;
     constant FIFO_DEPTH  : integer := 64;
 
     signal fifo_rden           : std_logic;
@@ -339,18 +353,21 @@ begin
     signal fifo_out            : std_logic_vector(FIFO_SIZE-1 downto 0);
     signal fifo_over_threshold : std_logic;
 
-    signal from_fifo_blocks       : block_set_arr_t;
-    signal from_fifo_block_counts : blocks_count_arr_t;
-    signal from_fifo_has_blocks   : std_logic_vector(N_CHAINS-1 downto 0);
-    signal from_fifo_last         : std_logic;
+    signal from_fifo_blocks         : block_set_arr_t;
+    signal from_fifo_block_counts   : blocks_count_arr_t;
+    signal from_fifo_has_blocks     : std_logic_vector(N_CHAINS-1 downto 0);
+    signal from_fifo_last           : std_logic;
+    signal from_fifo_last_remaining : std_logic_vector(BLOCK_SIZE-2 downto 0);
 
-    signal current_blocks     : block_set_arr_t;
-    signal current_counts     : blocks_count_arr_t;
-    signal current_has_blocks : std_logic_vector(N_CHAINS-1 downto 0);
-    signal current_last       : std_logic;
-    signal current_valid      : std_logic;
+    signal current_blocks         : block_set_arr_t;
+    signal current_counts         : blocks_count_arr_t;
+    signal current_has_blocks     : std_logic_vector(N_CHAINS-1 downto 0);
+    signal current_last           : std_logic;
+    signal current_valid          : std_logic;
+    signal current_last_remaining : std_logic_vector(BLOCK_SIZE-2 downto 0);
 
-    signal counter : integer range 0 to MAX_BLOCKS_PER_CHAIN;
+    signal counter           : integer range 0 to MAX_BLOCKS_PER_CHAIN;
+    signal output_last_block : std_logic;
 
     signal current_block         : std_logic_vector(BLOCK_SIZE-1 downto 0);
     signal current_block_set     : std_logic_vector(MAX_BLOCKS_PER_CHAIN*BLOCK_SIZE-1 downto 0);
@@ -362,13 +379,16 @@ begin
 
     signal out_handshake : std_logic;
   begin
-    process (to_fifo_blocks, to_fifo_blocks_count, from_combine_has_blocks, to_fifo_last, to_fifo_valid)
+    process (to_fifo_blocks, to_fifo_blocks_count, from_combine_has_blocks, to_fifo_last_remaining, to_fifo_last, to_fifo_valid)
       variable idx : integer;
     begin
       for i in 0 to N_CHAINS-1 loop
-        fifo_in((i+1)*MAX_BLOCKS_PER_CHAIN*BLOCK_SIZE-1 downto i*MAX_BLOCKS_PER_CHAIN*BLOCK_SIZE) <= to_fifo_blocks(i);
+        fifo_in((i+1)*MAX_BLOCKS_PER_CHAIN*BLOCK_SIZE - 1 downto i*MAX_BLOCKS_PER_CHAIN*BLOCK_SIZE) <= to_fifo_blocks(i);
       end loop;
       idx := N_CHAINS * MAX_BLOCKS_PER_CHAIN * BLOCK_SIZE;
+
+      fifo_in(idx + BLOCK_SIZE-2 downto idx) <= to_fifo_last_remaining;
+      idx                                    := idx + BLOCK_SIZE-1;
 
       for i in 0 to N_CHAINS-1 loop
         fifo_in(idx + (i+1)*COUNTER_SIZE-1 downto idx + i*COUNTER_SIZE)
@@ -381,7 +401,7 @@ begin
 
       fifo_in(idx) <= to_fifo_last;
 
-      if (to_fifo_valid = '1' and or_slv(from_combine_has_blocks) = '1') then
+      if (to_fifo_valid = '1' and (or_slv(from_combine_has_blocks) = '1' or to_fifo_last = '1')) then
         fifo_wren <= '1';
       else
         fifo_wren <= '0';
@@ -430,7 +450,8 @@ begin
         );
 
     fifo_rden <= '1' when fifo_empty = '0' and (current_valid = '0' or
-                                                (out_handshake = '1' and is_last_block = '1'))
+                                                (out_handshake = '1' and ((current_last = '0' and is_last_block = '1')
+                                                                          or output_last_block = '1')))
                  else '0';
 
     process (fifo_out)
@@ -440,6 +461,9 @@ begin
         from_fifo_blocks(i) <= fifo_out((i+1)*MAX_BLOCKS_PER_CHAIN*BLOCK_SIZE-1 downto i*MAX_BLOCKS_PER_CHAIN*BLOCK_SIZE);
       end loop;
       idx := N_CHAINS * MAX_BLOCKS_PER_CHAIN * BLOCK_SIZE;
+
+      from_fifo_last_remaining <= fifo_out(idx + BLOCK_SIZE-2 downto idx);
+      idx                      := idx + BLOCK_SIZE-1;
 
       for i in 0 to N_CHAINS-1 loop
         from_fifo_block_counts(i) <= to_integer(unsigned(fifo_out(idx + (i+1)*COUNTER_SIZE-1 downto idx + i*COUNTER_SIZE)));
@@ -473,15 +497,16 @@ begin
       end loop;
     end process;
 
-    is_last_block <= '1' when counter = from_fifo_block_counts(current_block_set_idx) - 1 and last_block_set = '1' else '0';
-    current_block <= current_block_set(BLOCK_SIZE-1 downto 0);
+    is_last_block <= '1' when counter = current_counts(current_block_set_idx) - 1 and last_block_set = '1' else '0';
+    current_block <= current_block_set(BLOCK_SIZE-1 downto 0) when output_last_block = '0' else current_last_remaining & '0';
 
     process (clk)
     begin
       if (rising_edge(clk)) then
         if (aresetn = '0') then
-          counter       <= 0;
-          current_valid <= '0';
+          counter           <= 0;
+          current_valid     <= '0';
+          output_last_block <= '0';
         else
           if (fifo_rden = '1') then
             counter               <= 0;
@@ -489,14 +514,30 @@ begin
             current_block_set_idx <= first_block_set_idx;
             current_block_set     <= from_fifo_blocks(first_block_set_idx);
 
-            current_blocks        <= from_fifo_blocks;
-            current_counts        <= from_fifo_block_counts;
-            current_has_blocks    <= from_fifo_has_blocks;
-            current_last          <= from_fifo_last;
+            current_blocks         <= from_fifo_blocks;
+            current_counts         <= from_fifo_block_counts;
+            current_has_blocks     <= from_fifo_has_blocks;
+            current_last           <= from_fifo_last;
+            current_last_remaining <= from_fifo_last_remaining;
+            if (from_fifo_last = '1' and or_slv(current_has_blocks) = '0') then
+              output_last_block <= '1';
+            else
+              output_last_block <= '0';
+            end if;
           elsif (out_handshake = '1') then
+            if (output_last_block = '1') then
+              current_valid <= '0';
+            end if;
+
             if (current_counts(current_block_set_idx) = 0 or counter = current_counts(current_block_set_idx) - 1) then
               if (last_block_set = '1') then
-                current_valid <= '0';
+                if (current_last = '1') then
+                  if (output_last_block = '0') then
+                    output_last_block <= '1';
+                  end if;
+                else
+                  current_valid <= '0';
+                end if;
               end if;
               counter               <= 0;
               current_block_set_idx <= next_block_set_idx;
@@ -526,7 +567,7 @@ begin
         out_data <= current_block;
       end if;
 
-      if (current_last = '1' and is_last_block = '1') then
+      if (current_last = '1' and output_last_block = '1') then
         out_last <= '1';
       else
         out_last <= '0';
