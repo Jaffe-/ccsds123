@@ -8,8 +8,6 @@ module top_tb;
 
    parameter OUT_BUBBLES = 1;
 
-   parameter ISUNSIGNED = 0;
-
    reg clk, aresetn;
    reg [PIPELINES*D-1:0] in_tdata;
    reg         in_tvalid;
