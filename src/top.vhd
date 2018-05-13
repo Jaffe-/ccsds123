@@ -55,6 +55,8 @@ architecture rtl of ccsds123_top is
 
   signal in_handshake : std_logic;
   signal in_ready     : std_logic;
+  signal in_valid     : std_logic;
+  signal in_data      : std_logic_vector(PIPELINES*D-1 downto 0);
 
   signal weights_wr      : std_logic_vector(PIPELINES-1 downto 0);
   signal weights_wr_data : signed(PIPELINES*CZ*(OMEGA+3)-1 downto 0);
@@ -101,9 +103,10 @@ architecture rtl of ccsds123_top is
   signal from_sample_store_nw : std_logic_vector(PIPELINES*D-1 downto 0);
   signal from_sample_store_n  : std_logic_vector(PIPELINES*D-1 downto 0);
   signal from_sample_store_w  : std_logic_vector(PIPELINES*D-1 downto 0);
-
 begin
-  in_handshake  <= s_axis_tvalid and in_ready;
+  in_handshake  <= in_valid and in_ready;
+  in_valid      <= s_axis_tvalid;
+  in_data       <= s_axis_tdata;
   s_axis_tready <= in_ready;
 
   g_pipe_ctrl : if (C_INCL_PIPE_CTRL) generate
@@ -153,11 +156,11 @@ begin
 
   -- Convert unsigned to signed if necessary
   g_signed_convert : if (ISUNSIGNED) generate
-    process (s_axis_tdata)
+    process (in_data)
       variable sample : std_logic_vector(D-1 downto 0);
     begin
       for i in 0 to PIPELINES-1 loop
-        sample                           := s_axis_tdata((i+1)*D-1 downto i*D);
+        sample                           := in_data((i+1)*D-1 downto i*D);
         sample(D-1)                      := not sample(D-1);
         in_samples((i+1)*D-1 downto i*D) <= sample;
       end loop;
@@ -165,7 +168,7 @@ begin
   end generate g_signed_convert;
 
   g_no_signed_convert : if (not ISUNSIGNED) generate
-    in_samples <= s_axis_tdata;
+    in_samples <= in_data;
   end generate g_no_signed_convert;
 
   i_sample_store : entity work.sample_store
