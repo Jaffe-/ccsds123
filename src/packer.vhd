@@ -70,8 +70,8 @@ architecture rtl of packer is
 
   type word_delay_arr_t is array (0 to N_CHAINS) of std_logic_vector(N_WORDS*MAX_LENGTH-1 downto 0);
   signal word_regs  : word_delay_arr_t;
-  signal valid_regs : std_logic_vector(N_CHAINS + 2 downto 0);
-  signal last_regs  : std_logic_vector(N_CHAINS + 2 downto 0);
+  signal valid_regs : std_logic_vector(2*N_CHAINS + 1 downto 0);
+  signal last_regs  : std_logic_vector(2*N_CHAINS + 1 downto 0);
 
   signal prev_remaining        : std_logic_vector(BLOCK_SIZE-2 downto 0);
   signal prev_remaining_next   : std_logic_vector(BLOCK_SIZE-2 downto 0);
@@ -113,14 +113,21 @@ begin
 
     type shift_arr_t is array (0 to num_words(i)-1) of integer range 0 to BLOCK_SIZE-1;
     type extract_arr_t is array (0 to num_words(i)-1) of integer range 0 to MAX_BLOCKS_PER_WORD;
+    type shifted_word_arr_t is array (0 to num_words(i)-1) of std_logic_vector(MAX_LENGTH+BLOCK_SIZE-2 downto 0);
 
     signal to_delay_shift   : shift_arr_t;
     signal to_delay_lengths : unsigned(num_words(i)*num2bits(MAX_LENGTH)-1 downto 0);
 
-    signal to_calc_lengths : unsigned(num_words(i)*num2bits(MAX_LENGTH)-1 downto 0);
+    signal to_calc_lengths          : unsigned(num_words(i)*num2bits(MAX_LENGTH)-1 downto 0);
+    signal to_combine_shifted_words : shifted_word_arr_t;
+    signal to_combine_extract_count : extract_arr_t;
 
-    type shifted_word_arr_t is array (0 to num_words(i)-1) of std_logic_vector(BLOCK_SIZE + MAX_LENGTH - 2 downto 0);
-    signal shifted_words : shifted_word_arr_t;
+    signal to_delay_shifted_words : shifted_word_arr_t;
+    signal to_delay_extract_count : extract_arr_t;
+
+    signal to_delay_blocks       : std_logic_vector(MAX_BLOCKS_PER_CHAIN*BLOCK_SIZE-1 downto 0);
+    signal to_delay_blocks_count : integer range 0 to MAX_BLOCKS_PER_CHAIN;
+    signal to_delay_has_blocks   : std_logic;
 
     signal from_calc_shift           : shift_arr_t;
     signal from_calc_lengths         : unsigned(num_words(i)*num2bits(MAX_LENGTH)-1 downto 0);
@@ -130,22 +137,36 @@ begin
   begin
     g_delay_inputs : if (IN_DELAY_CYCLES > 0) generate
       type delayed_length_arr_t is array (0 to IN_DELAY_CYCLES) of unsigned(num_words(i)*num2bits(MAX_LENGTH)-1 downto 0);
-      signal delayed_lengths : delayed_length_arr_t;
+      type delayed_word_arr_t is array (0 to IN_DELAY_CYCLES) of std_logic_vector(num_words(i)*MAX_LENGTH-1 downto 0);
+      type delayed_shifted_words_arr_t is array (0 to IN_DELAY_CYCLES-1) of shifted_word_arr_t;
+      type delayed_extract_count_arr_t is array (0 to IN_DELAY_CYCLES-1) of extract_arr_t;
+      signal delayed_lengths       : delayed_length_arr_t;
+      signal delayed_words         : delayed_word_arr_t;
+      signal delayed_shifted_words : delayed_shifted_words_arr_t;
+      signal delayed_extract_count : delayed_extract_count_arr_t;
     begin
       process (clk)
       begin
         if (rising_edge(clk)) then
-          delayed_lengths(0) <= in_lengths((i*N_WORDS_PER_CHAIN + num_words(i))*num2bits(MAX_LENGTH)-1 downto i*N_WORDS_PER_CHAIN*num2bits(MAX_LENGTH));
+          delayed_lengths(0)       <= in_lengths((i*N_WORDS_PER_CHAIN + num_words(i))*num2bits(MAX_LENGTH)-1 downto i*N_WORDS_PER_CHAIN*num2bits(MAX_LENGTH));
+          delayed_shifted_words(0) <= to_delay_shifted_words;
+          delayed_extract_count(0) <= to_delay_extract_count;
           for j in 1 to IN_DELAY_CYCLES-1 loop
-            delayed_lengths(j) <= delayed_lengths(j-1);
+            delayed_lengths(j)       <= delayed_lengths(j-1);
+            delayed_shifted_words(j) <= delayed_shifted_words(j-1);
+            delayed_extract_count(j) <= delayed_extract_count(j-1);
           end loop;
         end if;
       end process;
-      to_calc_lengths <= delayed_lengths(IN_DELAY_CYCLES-1);
+      to_calc_lengths          <= delayed_lengths(IN_DELAY_CYCLES-1);
+      to_combine_shifted_words <= delayed_shifted_words(IN_DELAY_CYCLES-1);
+      to_combine_extract_count <= delayed_extract_count(IN_DELAY_CYCLES-1);
     end generate g_delay_inputs;
 
     g_no_input_delay : if (IN_DELAY_CYCLES = 0) generate
-      to_calc_lengths <= in_lengths((i*N_WORDS_PER_CHAIN + num_words(i))*num2bits(MAX_LENGTH)-1 downto i*N_WORDS_PER_CHAIN*num2bits(MAX_LENGTH));
+      to_calc_lengths          <= in_lengths((i*N_WORDS_PER_CHAIN + num_words(i))*num2bits(MAX_LENGTH)-1 downto i*N_WORDS_PER_CHAIN*num2bits(MAX_LENGTH));
+      to_combine_shifted_words <= to_delay_shifted_words;
+      to_combine_extract_count <= to_delay_extract_count;
     end generate g_no_input_delay;
 
     process (clk)
@@ -176,28 +197,45 @@ begin
       type shift_delay_arr_t is array (0 to OUT_DELAY_CYCLES) of shift_arr_t;
       type extract_delay_arr_t is array (0 to OUT_DELAY_CYCLES) of extract_arr_t;
       type length_arr_t is array (0 to OUT_DELAY_CYCLES) of unsigned(num_words(i)*num2bits(MAX_LENGTH)-1 downto 0);
+      type blocks_delay_arr_t is array (0 to OUT_DELAY_CYCLES-1) of std_logic_vector(MAX_BLOCKS_PER_CHAIN*BLOCK_SIZE-1 downto 0);
+      type blocks_count_delay_arr_t is array (0 to OUT_DELAY_CYCLES-1) of integer range 0 to MAX_BLOCKS_PER_CHAIN;
 
-      signal delayed_shift   : shift_delay_arr_t;
-      signal delayed_lengths : length_arr_t;
+      signal delayed_shift        : shift_delay_arr_t;
+      signal delayed_lengths      : length_arr_t;
+      signal delayed_blocks       : blocks_delay_arr_t;
+      signal delayed_blocks_count : blocks_count_delay_arr_t;
+      signal delayed_has_blocks   : std_logic_vector(OUT_DELAY_CYCLES-1 downto 0);
     begin
       process (clk)
       begin
         if (rising_edge(clk)) then
-          delayed_shift(0)   <= to_delay_shift;
-          delayed_lengths(0) <= to_delay_lengths;
+          delayed_shift(0)        <= to_delay_shift;
+          delayed_lengths(0)      <= to_delay_lengths;
+          delayed_blocks(0)       <= to_delay_blocks;
+          delayed_blocks_count(0) <= to_delay_blocks_count;
+          delayed_has_blocks(0)   <= to_delay_has_blocks;
           for j in 1 to OUT_DELAY_CYCLES-1 loop
-            delayed_shift(j)   <= delayed_shift(j-1);
-            delayed_lengths(j) <= delayed_lengths(j-1);
+            delayed_shift(j)        <= delayed_shift(j-1);
+            delayed_lengths(j)      <= delayed_lengths(j-1);
+            delayed_blocks(j)       <= delayed_blocks(j-1);
+            delayed_blocks_count(j) <= delayed_blocks_count(j-1);
+            delayed_has_blocks(j)   <= delayed_has_blocks(j-1);
           end loop;
         end if;
       end process;
-      from_calc_shift   <= delayed_shift(OUT_DELAY_CYCLES-1);
-      from_calc_lengths <= delayed_lengths(OUT_DELAY_CYCLES-1);
+      from_calc_shift            <= delayed_shift(OUT_DELAY_CYCLES-1);
+      from_calc_lengths          <= delayed_lengths(OUT_DELAY_CYCLES-1);
+      from_combine_blocks(i)     <= delayed_blocks(OUT_DELAY_CYCLES-1);
+      to_fifo_blocks_count(i)    <= delayed_blocks_count(OUT_DELAY_CYCLES-1);
+      from_combine_has_blocks(i) <= delayed_has_blocks(OUT_DELAY_CYCLES-1);
     end generate g_delay_outputs;
 
     g_nodelay_out : if (OUT_DELAY_CYCLES = 0) generate
-      from_calc_shift   <= to_delay_shift;
-      from_calc_lengths <= to_delay_lengths;
+      from_calc_shift            <= to_delay_shift;
+      from_calc_lengths          <= to_delay_lengths;
+      from_combine_blocks(i)     <= to_delay_blocks;
+      to_fifo_blocks_count(i)    <= to_delay_blocks_count;
+      from_combine_has_blocks(i) <= to_delay_has_blocks;
     end generate g_nodelay_out;
 
     --------------------------------------------------------------------------------
@@ -229,25 +267,29 @@ begin
         --------------------------------------------------------------------------------
         -- Stage 2 - Shift each incoming word
         --------------------------------------------------------------------------------
-        extract_count_reg <= from_adjust_extract_count;
+        to_delay_extract_count <= from_adjust_extract_count;
         for j in 0 to num_words(i)-1 loop
-          extended_word := from_delay_words((i*N_WORDS_PER_CHAIN + j + 1)*MAX_LENGTH-1 downto (i*N_WORDS_PER_CHAIN + j)*MAX_LENGTH)
-                           & (BLOCK_SIZE-2 downto 0 => '0');
-          shifted_words(j) <= std_logic_vector(shift_right(unsigned(extended_word), from_adjust_shift(j)));
+          extended_word             := from_delay_words((i*MAX_BLOCKS_PER_CHAIN + j + 1)*MAX_LENGTH-1 downto (i*MAX_BLOCKS_PER_CHAIN + j)*MAX_LENGTH) & (BLOCK_SIZE-2 downto 0 => '0');
+          to_delay_shifted_words(j) <= std_logic_vector(shift_right(unsigned(extended_word), from_adjust_shift(j)));
         end loop;
 
         --------------------------------------------------------------------------------
         -- Stage 3 - Combine shifted words and extract blocks
         --------------------------------------------------------------------------------
-        remaining_bits := (others => '0');
-        count          := 0;
-        blocks         := (others => '0');
-        has_blocks     := '0';
+        if (i = 0) then
+          remaining_bits := (others => '0');
+        else
+          remaining_bits := from_combine_remaining(i-1);
+        end if;
+
+        count      := 0;
+        blocks     := (others => '0');
+        has_blocks := '0';
         for j in 0 to num_words(i)-1 loop
-          temp := (remaining_bits & (MAX_LENGTH-1 downto 0 => '0')) or shifted_words(j);
+          temp := (remaining_bits & (MAX_LENGTH-1 downto 0 => '0')) or to_combine_shifted_words(j);
 
           for blk in 0 to MAX_BLOCKS_PER_WORD-1 loop
-            if (extract_count_reg(j) > blk) then
+            if (to_combine_extract_count(j) > blk) then
               blocks(BLOCK_SIZE*(count+1)-1 downto BLOCK_SIZE*count) := temp(BLOCK_SIZE+MAX_LENGTH-2 downto MAX_LENGTH-1);
 
               temp       := temp(MAX_LENGTH-2 downto 0) & (BLOCK_SIZE-1 downto 0 => '0');
@@ -258,10 +300,10 @@ begin
           remaining_bits := temp(BLOCK_SIZE+MAX_LENGTH-2 downto MAX_LENGTH);
         end loop;
 
-        from_combine_blocks(i)     <= blocks;
-        from_combine_remaining(i)  <= remaining_bits;
-        to_fifo_blocks_count(i)    <= count;
-        from_combine_has_blocks(i) <= has_blocks;
+        to_delay_blocks           <= blocks;
+        to_delay_blocks_count     <= count;
+        to_delay_has_blocks       <= has_blocks;
+        from_combine_remaining(i) <= remaining_bits;
       end if;
     end process;
   end generate g_combiners;
@@ -273,20 +315,22 @@ begin
   -- Combine remaining bits and or into produced blocks
   --------------------------------------------------------------------------------
   process (from_combine_blocks, from_combine_remaining, prev_remaining, from_combine_has_blocks)
-    variable remaining : std_logic_vector(BLOCK_SIZE-2 downto 0);
+    variable lowest_idx : integer;
   begin
-    remaining := prev_remaining;
-    for i in 0 to N_CHAINS-1 loop
-      to_fifo_blocks(i)                        <= from_combine_blocks(i);
-      to_fifo_blocks(i)(BLOCK_SIZE-1 downto 1) <= from_combine_blocks(i)(BLOCK_SIZE-1 downto 1) or remaining;
-
+    lowest_idx := 0;
+    for i in N_CHAINS-1 downto 0 loop
       if (from_combine_has_blocks(i) = '1') then
-        remaining := from_combine_remaining(i);
-      else
-        remaining := remaining or from_combine_remaining(i);
+        lowest_idx := i;
       end if;
     end loop;
-    prev_remaining_next <= remaining;
+
+    to_fifo_blocks <= from_combine_blocks;
+    if (or_slv(from_combine_has_blocks) = '1') then
+      to_fifo_blocks(lowest_idx)(BLOCK_SIZE-1 downto 1) <= from_combine_blocks(lowest_idx)(BLOCK_SIZE-1 downto 1) or prev_remaining;
+      prev_remaining_next                               <= from_combine_remaining(N_CHAINS-1);
+    else
+      prev_remaining_next <= from_combine_remaining(N_CHAINS-1) or prev_remaining;
+    end if;
   end process;
 
   -- Store bits from previous reg
