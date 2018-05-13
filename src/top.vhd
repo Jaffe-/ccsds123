@@ -338,7 +338,7 @@ begin
       BLOCK_SIZE        => BUS_WIDTH,
       N_WORDS           => PIPELINES,
       MAX_LENGTH        => UMAX + D,
-      N_WORDS_PER_CHAIN => minimum(PIPELINES, 4),
+      N_WORDS_PER_CHAIN => 1,
       LITTLE_ENDIAN     => LITTLE_ENDIAN)
     port map (
       clk     => clk,
