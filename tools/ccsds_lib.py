@@ -49,7 +49,7 @@ def convert(image_desc, to_order, out_filename):
                         (image_desc["filename"], image_desc["order"], out_filename, to_order,
                          image_desc["NX"], image_desc["NY"], image_desc["NZ"]), shell=True)
 
-def write_sim_params(dimensions, parameters, filename):
+def write_sim_params(dimensions, parameters, signed, filename):
     sim_params = {
         "PIPELINES": parameters["PIPELINES"] if "PIPELINES" in parameters else 1,
         "NX": dimensions[0],
@@ -70,6 +70,7 @@ def write_sim_params(dimensions, parameters, filename):
         "REDUCED": 1 if parameters["mode"] == "reduced" else 0,
         "LITTLE_ENDIAN": 1 if parameters["out_endianness"] == "little" else 0,
         "BUS_WIDTH": 8 * int(parameters["out_word_size"]),
+        "ISUNSIGNED": 1 if not signed else 0,
         }
 
     with open(filename, 'w') as f:

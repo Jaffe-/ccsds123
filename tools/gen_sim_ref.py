@@ -27,7 +27,7 @@ def main():
     encoded_filename = golden_filename + ".tmp"
 
     # Write verilog parameter file to be included in test bench
-    write_sim_params(dimensions, parameters, sim_params_filename)
+    write_sim_params(dimensions, parameters, image["signed"] == "true", sim_params_filename)
 
     # Call Emporda to generate the golden reference file
     generate_golden(parameters, dimensions, image["signed"] == "true", img_filename, golden_filename)

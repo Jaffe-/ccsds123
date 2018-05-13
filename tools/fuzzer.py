@@ -68,7 +68,7 @@ def run_test(fixed_parameters):
     generate_golden(parameters, dimensions, False, img_filename, golden_filename)
 
     # Generate verilog include file
-    write_sim_params(dimensions, parameters, verilog_filename)
+    write_sim_params(dimensions, parameters, False, verilog_filename)
 
     # Run simulation
     sim_ret = subprocess.call("./simulate.sh %s %s" % (img_filename, golden_filename), shell=True)
