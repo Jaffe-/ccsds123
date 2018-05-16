@@ -170,7 +170,7 @@ begin
     end generate g_no_input_delay;
 
     process (clk)
-      constant SUM_SIZE           : integer := len2bits(BLOCK_SIZE + MAX_LENGTH);
+      constant SUM_SIZE           : integer := num2bits(BLOCK_SIZE + MAX_LENGTH);
       constant BLOCK_SIZE_BITS    : integer := len2bits(BLOCK_SIZE);
       variable sum                : unsigned(SUM_SIZE-1 downto 0);
       variable num_remaining_bits : unsigned(BLOCK_SIZE_BITS-1 downto 0);
@@ -269,7 +269,7 @@ begin
         --------------------------------------------------------------------------------
         to_delay_extract_count <= from_adjust_extract_count;
         for j in 0 to num_words(i)-1 loop
-          extended_word             := from_delay_words((i*MAX_BLOCKS_PER_CHAIN + j + 1)*MAX_LENGTH-1 downto (i*MAX_BLOCKS_PER_CHAIN + j)*MAX_LENGTH) & (BLOCK_SIZE-2 downto 0 => '0');
+          extended_word             := from_delay_words((i*N_WORDS_PER_CHAIN + j + 1)*MAX_LENGTH-1 downto (i*N_WORDS_PER_CHAIN + j)*MAX_LENGTH) & (BLOCK_SIZE-2 downto 0 => '0');
           to_delay_shifted_words(j) <= std_logic_vector(shift_right(unsigned(extended_word), from_adjust_shift(j)));
         end loop;
 
@@ -376,7 +376,7 @@ begin
     constant FIFO_MARGIN     : integer := 30;
     constant CTRL_FIFO_SIZE  : integer := N_CHAINS + 1;
     constant BLOCK_FIFO_SIZE : integer := MAX_BLOCKS_PER_CHAIN*BLOCK_SIZE + COUNTER_SIZE;
-    constant FIFO_DEPTH      : integer := 1024;
+    constant FIFO_DEPTH      : integer := 256;
 
     signal fifo_rden           : std_logic;
     signal fifo_wren           : std_logic;
