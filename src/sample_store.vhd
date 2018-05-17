@@ -66,55 +66,55 @@ begin
     i_w_fifo : entity work.fifo
       generic map (
         ELEMENT_SIZE => D,
-        SIZE         => (NZ + i) / PIPELINES,
+        SIZE         => f_delay(i, 1, NZ, PIPELINES),
         RAM_TYPE     => "distributed")
       port map (
         clk      => clk,
         aresetn  => aresetn,
         in_data  => to_fifo(i),
         in_valid => in_valid,
-        out_data => from_w_fifo((i + STEP) mod PIPELINES));
+        out_data => from_w_fifo(f_shift(i, 1, NZ, PIPELINES)));
 
     out_s_w((i+1)*D-1 downto i*D) <= from_w_fifo(i);
 
     i_ne_fifo : entity work.fifo
       generic map (
         ELEMENT_SIZE => D,
-        SIZE         => ((NX-2)*NZ + i) / PIPELINES)
+        SIZE         => f_delay(i, NX-2, NZ, PIPELINES))
       port map (
         clk      => clk,
         aresetn  => aresetn,
         in_data  => from_w_fifo(i),
         in_valid => in_valid,
-        out_data => from_ne_fifo((i + (NX-2)*STEP) mod PIPELINES));
+        out_data => from_ne_fifo(f_shift(i, NX-2, NZ, PIPELINES)));
 
     out_s_ne((i+1)*D-1 downto i*D) <= from_ne_fifo(i);
 
     i_n_fifo : entity work.fifo
       generic map (
         ELEMENT_SIZE => D,
-        SIZE         => (NZ + i) / PIPELINES,
+        SIZE         => f_delay(i, 1, NZ, PIPELINES),
         RAM_TYPE     => "distributed")
       port map (
         clk      => clk,
         aresetn  => aresetn,
         in_data  => from_ne_fifo(i),
         in_valid => in_valid,
-        out_data => from_n_fifo((i + STEP) mod PIPELINES));
+        out_data => from_n_fifo(f_shift(i, 1, NZ, PIPELINES)));
 
     out_s_n((i+1)*D-1 downto i*D) <= from_n_fifo(i);
 
     i_nw_fifo : entity work.fifo
       generic map (
         ELEMENT_SIZE => D,
-        SIZE         => (NZ + i) / PIPELINES,
+        SIZE         => f_delay(i, 1, NZ, PIPELINES),
         RAM_TYPE     => "distributed")
       port map (
         clk      => clk,
         aresetn  => aresetn,
         in_data  => from_n_fifo(i),
         in_valid => in_valid,
-        out_data => from_nw_fifo((i + STEP) mod PIPELINES));
+        out_data => from_nw_fifo(f_shift(i, 1, NZ, PIPELINES)));
 
     out_s_nw((i+1)*D-1 downto i*D) <= from_nw_fifo(i);
 

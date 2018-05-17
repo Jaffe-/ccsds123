@@ -31,6 +31,8 @@ package common is
   constant DELAY_WEIGHT_UPDATE : integer := 3;
 
   function delay_dot(CZ : integer) return integer;
+  function f_delay(i, dt, NZ, NP : integer) return integer;
+  function f_shift(i, dt, NZ, NP : integer) return integer;
 end common;
 
 package body common is
@@ -96,4 +98,14 @@ package body common is
       return b;
     end if;
   end minimum;
+
+  function f_delay(i, dt, NZ, NP : integer) return integer is
+  begin
+    return (i + NZ * dt) / NP;
+  end f_delay;
+
+  function f_shift(i, dt, NZ, NP : integer) return integer is
+  begin
+    return (i + NZ * dt) mod NP;
+  end f_shift;
 end common;

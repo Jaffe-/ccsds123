@@ -45,8 +45,8 @@ begin
   g_rams : for i in 0 to PIPELINES-1 generate
     -- Write data and address must be remapped based on relationship between
     -- number of pipelines and number of planes in the cube
-    wr_data_arr((i + STEP) mod PIPELINES) <= wr_data((i+1)*ELEMENT_SIZE-1 downto i*ELEMENT_SIZE);
-    wr_idx((i + STEP) mod PIPELINES)      <= wr_cnt when i + STEP < PIPELINES else wrap_inc(wr_cnt, RAM_SIZE-1);
+    wr_data_arr(f_shift(i, 1, ELEMENTS, PIPELINES)) <= wr_data((i+1)*ELEMENT_SIZE-1 downto i*ELEMENT_SIZE);
+    wr_idx(f_shift(i, 1, ELEMENTS, PIPELINES))      <= wr_cnt when i + STEP < PIPELINES else wrap_inc(wr_cnt, RAM_SIZE-1);
 
     -- Read data maps directly to pipelines
     rd_data_vec((i+1)*ELEMENT_SIZE-1 downto i*ELEMENT_SIZE) <= rd_data_arr(i);
@@ -76,7 +76,7 @@ begin
         rd_cnt <= 0;
 
         -- Make distance between read and write pointer equal to delay(0, 1)
-        wr_cnt <= ELEMENTS/PIPELINES mod RAM_SIZE;
+        wr_cnt <= f_delay(0, 1, ELEMENTS, PIPELINES);
 
         delay_stages <= (others => (others => '0'));
       else
