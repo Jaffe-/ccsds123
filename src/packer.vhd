@@ -13,9 +13,9 @@ use xpm.vcomponents.all;
 
 entity packer is
   generic (
-    BLOCK_SIZE        : integer := 64;
+    BLOCK_SIZE        : integer := 32;
     N_WORDS           : integer := 4;
-    N_WORDS_PER_CHAIN : integer := 1;
+    N_WORDS_PER_CHAIN : integer := 4;
     MAX_LENGTH        : integer := 48;
     LITTLE_ENDIAN     : boolean := false
     );
@@ -52,6 +52,11 @@ architecture rtl of packer is
       return N_WORDS_PER_CHAIN;
     end if;
   end num_words;
+
+  function block_set_size(i : integer) return integer is
+  begin
+    return integer(ceil(real(num_words(i) * MAX_LENGTH)/real(BLOCK_SIZE)));
+  end block_set_size;
 
   constant LENGTH_BITS : integer := num2bits(MAX_LENGTH);
 
@@ -125,8 +130,8 @@ begin
     signal to_delay_shifted_words : shifted_word_arr_t;
     signal to_delay_extract_count : extract_arr_t;
 
-    signal to_delay_blocks       : std_logic_vector(MAX_BLOCKS_PER_CHAIN*BLOCK_SIZE-1 downto 0);
-    signal to_delay_blocks_count : integer range 0 to MAX_BLOCKS_PER_CHAIN;
+    signal to_delay_blocks       : std_logic_vector(block_set_size(i)*BLOCK_SIZE-1 downto 0);
+    signal to_delay_blocks_count : integer range 0 to block_set_size(i);
     signal to_delay_has_blocks   : std_logic;
 
     signal from_calc_shift           : shift_arr_t;
@@ -197,8 +202,8 @@ begin
       type shift_delay_arr_t is array (0 to OUT_DELAY_CYCLES) of shift_arr_t;
       type extract_delay_arr_t is array (0 to OUT_DELAY_CYCLES) of extract_arr_t;
       type length_arr_t is array (0 to OUT_DELAY_CYCLES) of unsigned(num_words(i)*num2bits(MAX_LENGTH)-1 downto 0);
-      type blocks_delay_arr_t is array (0 to OUT_DELAY_CYCLES-1) of std_logic_vector(MAX_BLOCKS_PER_CHAIN*BLOCK_SIZE-1 downto 0);
-      type blocks_count_delay_arr_t is array (0 to OUT_DELAY_CYCLES-1) of integer range 0 to MAX_BLOCKS_PER_CHAIN;
+      type blocks_delay_arr_t is array (0 to OUT_DELAY_CYCLES-1) of std_logic_vector(block_set_size(i)*BLOCK_SIZE-1 downto 0);
+      type blocks_count_delay_arr_t is array (0 to OUT_DELAY_CYCLES-1) of integer range 0 to block_set_size(i);
 
       signal delayed_shift        : shift_delay_arr_t;
       signal delayed_lengths      : length_arr_t;
@@ -223,17 +228,19 @@ begin
           end loop;
         end if;
       end process;
-      from_calc_shift            <= delayed_shift(OUT_DELAY_CYCLES-1);
-      from_calc_lengths          <= delayed_lengths(OUT_DELAY_CYCLES-1);
-      from_combine_blocks(i)     <= delayed_blocks(OUT_DELAY_CYCLES-1);
+      from_calc_shift        <= delayed_shift(OUT_DELAY_CYCLES-1);
+      from_calc_lengths      <= delayed_lengths(OUT_DELAY_CYCLES-1);
+      from_combine_blocks(i) <= (BLOCK_SIZE*(MAX_BLOCKS_PER_CHAIN-block_set_size(i))-1 downto 0 => '0')
+                                & delayed_blocks(OUT_DELAY_CYCLES-1);
       to_fifo_blocks_count(i)    <= delayed_blocks_count(OUT_DELAY_CYCLES-1);
       from_combine_has_blocks(i) <= delayed_has_blocks(OUT_DELAY_CYCLES-1);
     end generate g_delay_outputs;
 
     g_nodelay_out : if (OUT_DELAY_CYCLES = 0) generate
-      from_calc_shift            <= to_delay_shift;
-      from_calc_lengths          <= to_delay_lengths;
-      from_combine_blocks(i)     <= to_delay_blocks;
+      from_calc_shift        <= to_delay_shift;
+      from_calc_lengths      <= to_delay_lengths;
+      from_combine_blocks(i) <= (BLOCK_SIZE*(MAX_BLOCKS_PER_CHAIN-block_set_size(i))-1 downto 0 => '0')
+                                & to_delay_blocks;
       to_fifo_blocks_count(i)    <= to_delay_blocks_count;
       from_combine_has_blocks(i) <= to_delay_has_blocks;
     end generate g_nodelay_out;
@@ -246,8 +253,8 @@ begin
       variable remaining_bits : std_logic_vector(BLOCK_SIZE - 2 downto 0);
       variable extended_word  : std_logic_vector(BLOCK_SIZE + MAX_LENGTH-2 downto 0);
       variable temp           : std_logic_vector(BLOCK_SIZE + MAX_LENGTH-2 downto 0);
-      variable count          : integer range 0 to MAX_BLOCKS_PER_CHAIN;
-      variable blocks         : std_logic_vector(BLOCK_SIZE*MAX_BLOCKS_PER_CHAIN-1 downto 0);
+      variable count          : integer range 0 to block_set_size(i);
+      variable blocks         : std_logic_vector(BLOCK_SIZE*block_set_size(i)-1 downto 0);
       variable has_blocks     : std_logic;
     begin
       if (rising_edge(clk)) then
@@ -373,10 +380,9 @@ begin
   b_output : block is
     constant COUNTER_SIZE : integer := num2bits(MAX_BLOCKS_PER_CHAIN);
 
-    constant FIFO_MARGIN     : integer := 30;
-    constant CTRL_FIFO_SIZE  : integer := N_CHAINS + 1;
-    constant BLOCK_FIFO_SIZE : integer := MAX_BLOCKS_PER_CHAIN*BLOCK_SIZE + COUNTER_SIZE;
-    constant FIFO_DEPTH      : integer := 256;
+    constant FIFO_MARGIN    : integer := 30;
+    constant CTRL_FIFO_SIZE : integer := N_CHAINS + 1;
+    constant FIFO_DEPTH     : integer := 256;
 
     signal fifo_rden           : std_logic;
     signal fifo_wren           : std_logic;
@@ -443,9 +449,10 @@ begin
         over_threshold => ctrl_over_threshold);
 
     g_block_set_fifos : for i in 0 to N_CHAINS-1 generate
-      signal block_fifo_in  : std_logic_vector(BLOCK_FIFO_SIZE-1 downto 0);
-      signal block_fifo_out : std_logic_vector(BLOCK_FIFO_SIZE-1 downto 0);
-      signal rden, wren     : std_logic;
+      constant BLOCK_FIFO_SIZE : integer := block_set_size(i)*BLOCK_SIZE + COUNTER_SIZE;
+      signal block_fifo_in     : std_logic_vector(BLOCK_FIFO_SIZE-1 downto 0);
+      signal block_fifo_out    : std_logic_vector(BLOCK_FIFO_SIZE-1 downto 0);
+      signal rden, wren        : std_logic;
     begin
       i_fifo : entity work.xpm_fifo_wrapper
         generic map (
@@ -467,8 +474,10 @@ begin
       wren <= fifo_wren and from_combine_has_blocks(i);
       rden <= fifo_rden and from_fifo_has_blocks(i);
 
-      block_fifo_in             <= to_fifo_blocks(i) & std_logic_vector(to_unsigned(to_fifo_blocks_count(i), COUNTER_SIZE));
-      from_fifo_blocks(i)       <= block_fifo_out(MAX_BLOCKS_PER_CHAIN*BLOCK_SIZE + COUNTER_SIZE-1 downto COUNTER_SIZE);
+      block_fifo_in <= to_fifo_blocks(i)(BLOCK_SIZE*block_set_size(i)-1 downto 0)
+                       & std_logic_vector(to_unsigned(to_fifo_blocks_count(i), COUNTER_SIZE));
+      from_fifo_blocks(i) <= (BLOCK_SIZE*(MAX_BLOCKS_PER_CHAIN-block_set_size(i))-1 downto 0 => '0')
+                             & block_fifo_out(block_set_size(i)*BLOCK_SIZE + COUNTER_SIZE-1 downto COUNTER_SIZE);
       from_fifo_block_counts(i) <= to_integer(unsigned(block_fifo_out(COUNTER_SIZE-1 downto 0)));
     end generate g_block_set_fifos;
 
