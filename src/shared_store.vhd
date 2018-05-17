@@ -76,7 +76,7 @@ begin
         rd_cnt <= 0;
 
         -- Make distance between read and write pointer equal to delay(0, 1)
-        wr_cnt <= f_delay(0, 1, ELEMENTS, PIPELINES);
+        wr_cnt <= f_delay(0, 1, ELEMENTS, PIPELINES) mod RAM_SIZE;
 
         delay_stages <= (others => (others => '0'));
       else
