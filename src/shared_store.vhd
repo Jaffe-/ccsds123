@@ -36,17 +36,15 @@ architecture rtl of shared_store is
   signal wr_cnt : integer range 0 to RAM_SIZE-1;
 
   type idx_arr_t is array (0 to PIPELINES-1) of integer range 0 to RAM_SIZE-1;
-  signal wr_idx : idx_arr_t;
+  signal rd_idx : idx_arr_t;
 
   type data_arr_t is array (0 to PIPELINES-1) of std_logic_vector(ELEMENT_SIZE-1 downto 0);
-  signal wr_data_arr : data_arr_t;
   signal rd_data_arr : data_arr_t;
 begin
   g_rams : for i in 0 to PIPELINES-1 generate
     -- Write data and address must be remapped based on relationship between
     -- number of pipelines and number of planes in the cube
-    wr_data_arr(f_shift(i, 1, ELEMENTS, PIPELINES)) <= wr_data((i+1)*ELEMENT_SIZE-1 downto i*ELEMENT_SIZE);
-    wr_idx(f_shift(i, 1, ELEMENTS, PIPELINES))      <= wr_cnt when i + STEP < PIPELINES else wrap_inc(wr_cnt, RAM_SIZE-1);
+    rd_idx(i) <= rd_cnt when i + STEP < PIPELINES else wrap_dec(rd_cnt, RAM_SIZE-1);
 
     -- Read data maps directly to pipelines
     rd_data_vec((i+1)*ELEMENT_SIZE-1 downto i*ELEMENT_SIZE) <= rd_data_arr(i);
@@ -61,12 +59,12 @@ begin
         aresetn => aresetn,
 
         wr     => wr,
-        wraddr => wr_idx(i),
-        wrdata => wr_data_arr(i),
+        wraddr => wr_cnt,
+        wrdata => wr_data((i+1)*ELEMENT_SIZE-1 downto i*ELEMENT_SIZE),
 
         rd     => rd,
-        rdaddr => rd_cnt,
-        rddata => rd_data_arr(i));
+        rdaddr => rd_idx(i),
+        rddata => rd_data_arr(f_shift(i, 1, ELEMENTS, PIPELINES)));
   end generate g_rams;
 
   process (clk)

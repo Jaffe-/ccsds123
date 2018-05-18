@@ -17,6 +17,7 @@ package common is
   function clip(val : integer; val_min : integer; val_max : integer) return integer;
 
   function wrap_inc(val : integer; max : integer) return integer;
+  function wrap_dec(val : integer; max : integer) return integer;
 
   function max(a : integer; b : integer) return integer;
 
@@ -80,6 +81,15 @@ package body common is
       return val + 1;
     end if;
   end wrap_inc;
+
+  function wrap_dec(val : integer; max : integer) return integer is
+  begin
+    if (val - 1 < 0) then
+      return max;
+    else
+      return val - 1;
+    end if;
+  end wrap_dec;
 
   function max(a : integer; b : integer) return integer is
   begin
