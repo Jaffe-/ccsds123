@@ -7,6 +7,7 @@ use work.common.all;
 entity ccsds123_top is
   generic (
     PIPELINES     : integer := 1;
+    ON_THE_FLY    : boolean := true;
     LITTLE_ENDIAN : boolean := true;
     COL_ORIENTED  : boolean := false;
     REDUCED       : boolean := false;
@@ -95,7 +96,7 @@ architecture rtl of ccsds123_top is
   --  Predictor:               2
   --  Weight update:           3
   --  Weight storage:          1
-  constant C_INCL_PIPE_CTRL : boolean := CZ > 0 and NZ/PIPELINES < DELAY_LOCAL_DIFF + delay_dot(CZ) + DELAY_PREDICTOR + DELAY_WEIGHT_UPDATE + 1;
+  constant C_INCL_PIPE_CTRL : boolean := not ON_THE_FLY and CZ > 0 and NZ/PIPELINES < DELAY_LOCAL_DIFF + delay_dot(CZ) + DELAY_PREDICTOR + DELAY_WEIGHT_UPDATE + 1;
 
   signal in_samples : std_logic_vector(D*PIPELINES-1 downto 0);
 
@@ -131,7 +132,7 @@ begin
   end generate g_pipe_ctrl;
 
   g_nopipe_ctrl : if (not C_INCL_PIPE_CTRL) generate
-    in_ready <= not combiner_over_threshold;
+    in_ready <= '1' when ON_THE_FLY else not combiner_over_threshold;
   end generate g_nopipe_ctrl;
 
   last <= or_slv(pipeline_last);
