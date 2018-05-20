@@ -16,8 +16,8 @@ use ieee.math_real.all;
 
 entity dp_ram_wrapper is
   generic (
-    ELEMENTS     : integer := 21760;
-    ELEMENT_SIZE : integer := 16;
+    ELEMENTS     : integer;
+    ELEMENT_SIZE : integer;
     RAM_TYPE     : string  := "block"
     );
   port (
