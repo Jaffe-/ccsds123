@@ -28,10 +28,6 @@ architecture rtl of shared_store is
   constant STEP     : integer := ELEMENTS mod PIPELINES;
   constant RAM_SIZE : integer := integer(ceil(real(ELEMENTS)/real(PIPELINES)));
 
-  type delay_stages_t is array (0 to DELAY-1) of std_logic_vector(PIPELINES*ELEMENT_SIZE-1 downto 0);
-  signal delay_stages : delay_stages_t;
-  signal rd_data_vec  : std_logic_vector(PIPELINES*ELEMENT_SIZE-1 downto 0);
-
   signal rd_cnt : integer range 0 to RAM_SIZE-1;
   signal wr_cnt : integer range 0 to RAM_SIZE-1;
 
@@ -40,6 +36,10 @@ architecture rtl of shared_store is
 
   type data_arr_t is array (0 to PIPELINES-1) of std_logic_vector(ELEMENT_SIZE-1 downto 0);
   signal rd_data_arr : data_arr_t;
+
+  signal delay_rd     : std_logic;
+  signal delay_rd_reg : std_logic_vector(DELAY downto 0);
+
 begin
   g_rams : for i in 0 to PIPELINES-1 generate
     -- Write data and address must be remapped based on relationship between
@@ -47,7 +47,7 @@ begin
     rd_idx(i) <= rd_cnt when i + STEP < PIPELINES else wrap_dec(rd_cnt, RAM_SIZE-1);
 
     -- Read data maps directly to pipelines
-    rd_data_vec((i+1)*ELEMENT_SIZE-1 downto i*ELEMENT_SIZE) <= rd_data_arr(i);
+    rd_data((i+1)*ELEMENT_SIZE-1 downto i*ELEMENT_SIZE) <= rd_data_arr(i);
 
     i_ram : entity work.dp_ram_wrapper
       generic map (
@@ -62,7 +62,7 @@ begin
         wraddr => wr_cnt,
         wrdata => wr_data((i+1)*ELEMENT_SIZE-1 downto i*ELEMENT_SIZE),
 
-        rd     => rd,
+        rd     => delay_rd,
         rdaddr => rd_idx(i),
         rddata => rd_data_arr(f_shift(i, 1, ELEMENTS, PIPELINES)));
   end generate g_rams;
@@ -76,9 +76,9 @@ begin
         -- Make distance between read and write pointer equal to delay(0, 1)
         wr_cnt <= f_delay(0, 1, ELEMENTS, PIPELINES) mod RAM_SIZE;
 
-        delay_stages <= (others => (others => '0'));
+        delay_rd_reg <= (others => '0');
       else
-        if (rd = '1') then
+        if (delay_rd = '1') then
           rd_cnt <= wrap_inc(rd_cnt, RAM_SIZE-1);
         end if;
         if (wr = '1') then
@@ -86,15 +86,15 @@ begin
         end if;
 
         if (DELAY > 0) then
-          delay_stages(0) <= rd_data_vec;
+          delay_rd_reg(0) <= rd;
 
-          for i in 1 to DELAY-1 loop
-            delay_stages(i) <= delay_stages(i-1);
+          for i in 1 to DELAY loop
+            delay_rd_reg(i) <= delay_rd_reg(i-1);
           end loop;
         end if;
       end if;
     end if;
   end process;
 
-  rd_data <= delay_stages(DELAY-1) when DELAY > 0 else rd_data_vec;
+  delay_rd <= delay_rd_reg(DELAY-1) when DELAY > 0 else rd;
 end rtl;
