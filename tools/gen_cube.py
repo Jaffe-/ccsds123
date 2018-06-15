@@ -11,6 +11,6 @@ def main():
     NY = int(sys.argv[3])
     NZ = int(sys.argv[4])
 
-    gen_cube(filename, NX, NY, NZ)
+    ccsds_lib.gen_cube(filename, NX, NY, NZ)
 
 main()
