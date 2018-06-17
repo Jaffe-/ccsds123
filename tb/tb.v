@@ -1,3 +1,0 @@
-module tb;
-
-endmodule; // tb
